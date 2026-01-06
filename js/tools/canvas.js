@@ -1,4 +1,32 @@
 let showStripes = false;
+
+function hslToRgb(h, s, l) {
+  h = h / 360;
+  s = s / 100;
+  l = l / 100;
+  let r, g, b;
+
+  if (s === 0) {
+    r = g = b = l;
+  } else {
+    const hue2rgb = (p, q, t) => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1 / 6) return p + (q - p) * 6 * t;
+      if (t < 1 / 2) return q;
+      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+      return p;
+    };
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    r = hue2rgb(p, q, h + 1 / 3);
+    g = hue2rgb(p, q, h);
+    b = hue2rgb(p, q, h - 1 / 3);
+  }
+
+  return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+}
+
 function drawLine(ctx, start, end, color = "white", width = 2, handleSize = 0) {
   ctx.strokeStyle = color;
   ctx.lineWidth = width;
@@ -74,15 +102,39 @@ function drawBezierLine(start, end, ctrl, color = "white", width = 8) {
 
 var _canvas = null;
 var ctx = null;
+var displayCanvas = null;
+var displayCtx = null;
+var gameCanvas = null;
+var gameCtx = null;
+var menuCanvas = null;
+var menuCtx = null;
+
 function initCanvas(size = [window.innerWidth, window.innerHeight], pos = [0, 0]) {
-  _canvas = document.createElement("canvas");
-  _canvas.style.backgroundColor = "black";
-  ctx = _canvas.getContext("2d");
-  _canvas.width = size[0];
-  _canvas.height = size[1];
-  _canvas.style.left = pos[0];
-  _canvas.style.top = pos[1];
-  document.body.appendChild(_canvas);
+  // Create visible display canvas
+  displayCanvas = document.createElement("canvas");
+  displayCanvas.style.backgroundColor = "black";
+  displayCtx = displayCanvas.getContext("2d");
+  displayCanvas.width = size[0];
+  displayCanvas.height = size[1];
+  displayCanvas.style.left = pos[0];
+  displayCanvas.style.top = pos[1];
+  document.body.appendChild(displayCanvas);
+
+  // Create off-screen game canvas
+  gameCanvas = document.createElement("canvas");
+  gameCtx = gameCanvas.getContext("2d");
+  gameCanvas.width = size[0];
+  gameCanvas.height = size[1];
+
+  // Create off-screen menu canvas
+  menuCanvas = document.createElement("canvas");
+  menuCtx = menuCanvas.getContext("2d");
+  menuCanvas.width = size[0];
+  menuCanvas.height = size[1];
+
+  // Set ctx to gameCtx (all drawing happens here by default)
+  ctx = gameCtx;
+  _canvas = gameCanvas;
 }
 
 function drawText(ctx, pos, text, color = "white", backgroundColor = null, size = 25, centered = true) {
@@ -143,22 +195,23 @@ function drawTriangleBorder(ctx, p0, p1, p2, color = "white", width = 2) {
   drawLine(ctx, p2, p0, color, width);
 }
 
-function drawRect(x, y, width, height, color, strokeColor, lineWidth) {
-  var prev = ctx.lineWidth;
-  ctx.lineWidth = lineWidth || 1;
+function drawRect(x, y, width, height, color, strokeColor, renderCtx = ctx) {
+  var c = renderCtx;
+  var prev = c.lineWidth;
+  c.lineWidth = strokeColor ? (typeof strokeColor === "number" ? strokeColor : 1) : 1;
 
   if (color) {
-    ctx.fillStyle = color;
-    ctx.fillRect(x, y, width, height);
-    if (strokeColor) {
-      ctx.strokeStyle = strokeColor;
-      ctx.strokeRect(x, y, width, height);
+    c.fillStyle = color;
+    c.fillRect(x, y, width, height);
+    if (strokeColor && typeof strokeColor === "string") {
+      c.strokeStyle = strokeColor;
+      c.strokeRect(x, y, width, height);
     }
-  } else if (strokeColor) {
-    ctx.strokeStyle = strokeColor;
-    ctx.strokeRect(x, y, width, height);
+  } else if (strokeColor && typeof strokeColor === "string") {
+    c.strokeStyle = strokeColor;
+    c.strokeRect(x, y, width, height);
   }
-  ctx.lineWidth = prev;
+  c.lineWidth = prev;
 }
 
 function drawSlider(ctx, pos, size, value, min, max, fillColor = "rgba(255, 255, 255, 1)", backgroundColor = "rgba(255, 255, 255, 0.23)") {
@@ -166,11 +219,43 @@ function drawSlider(ctx, pos, size, value, min, max, fillColor = "rgba(255, 255,
 
   var normalizedValue = (value - min) / (max - min);
   var x = size[0] * normalizedValue;
-  drawRect(pos[0], pos[1], x, size[1], fillColor);
+  drawRect(pos[0], pos[1], x, size[1], fillColor, null, ctx);
   var fixedValue = value;
   if (value !== Math.floor(value)) {
     fixedValue = Number(value).toFixed(2);
     if (fixedValue !== value) fixedValue += "...";
   }
   drawText(ctx, [pos[0] - 20, pos[1] - 12], fixedValue, "white", null, 10, true);
+}
+
+function drawColorPicker(ctx, pos, size, selColor = null) {
+  var hovColorRgb = null;
+
+  for (let y = 0; y < size[1]; y++) {
+    for (let x = 0; x < size[0]; x++) {
+      const hueParam = x / size[0];
+      const satParam = y / size[1];
+      const hue = hueParam * 360; // 0° to 360° (horizontal)
+      const saturation = satParam * 100; // 0% to 100% (vertical)
+      const colorRgb = hslToRgb(hue, saturation, 50);
+      const colorString = `rgb(${colorRgb[0]},${colorRgb[1]},${colorRgb[2]})`;
+      var p = new Vec2(pos[0] + x, pos[1] + y);
+
+      drawRect(p.x, p.y, 1, 1, colorString, null, ctx);
+
+      if (selColor === colorString) {
+        drawCircle2(ctx, [p.x, p.y], 2, "white", "black", 1);
+      }
+
+      if (!hovColorRgb && pointInRect(mouse.pos, p, new Vec2(2, 2))) {
+        hovColorRgb = colorString;
+      }
+    }
+  }
+
+  if (hovColorRgb) {
+    drawRect(mouse.pos.x - 5 - hovColorRgb.length * 3, mouse.pos.y - 35, hovColorRgb.length * 7, 20, "rgba(0, 0, 0, 0.5)", null, ctx);
+    drawText(ctx, [mouse.pos.x, mouse.pos.y - 40], hovColorRgb, "white", null, 14, true);
+  }
+  return hovColorRgb;
 }

@@ -1,6 +1,6 @@
 function snakesInSpace(am = 10) {
   colGrid.init(200, false);
-  SelfCollisionsInterval = 2;
+  SelfCollisionsInterval = 5;
   gravity = new Vec2(0, 0);
   for (let i = 0; i < am; i++) {
     var r = Snake.instantiate(mouse.pos);
@@ -13,7 +13,7 @@ function snakesInSpace(am = 10) {
 }
 
 function upsideDownWorld(am = 100) {
-  colGrid.init(20, false);
+  colGrid.init(window.innerWidth / 8, false);
   SelfCollisionsInterval = 0;
   gravity = new Vec2(0, -32);
   for (let i = 0; i < am; i++) {

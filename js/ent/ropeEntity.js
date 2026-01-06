@@ -95,9 +95,9 @@ class RopeEntity extends Rope {
     player = this;
   }
 
-  render() {
-    super.render();
-    if (this === player) drawText(ctx, [this.segments[0].pos.x, this.segments[0].pos.y - 50], "YOU", "white", null, 12);
+  render(_ctx = ctx) {
+    super.render(_ctx);
+    if (this === player) drawText(_ctx, [this.segments[0].pos.x, this.segments[0].pos.y - 50], "YOU", "white", null, 12);
   }
 
   static instantiate(constructor, pos) {
@@ -125,8 +125,8 @@ class Snake extends RopeEntity {
     super.update();
   }
 
-  render() {
-    super.render();
+  render(_ctx = ctx) {
+    super.render(_ctx);
 
     var lastSegP = this.segments[0].pos;
     var w = this.thick / 4;
@@ -134,9 +134,9 @@ class Snake extends RopeEntity {
     var eye1P = [lastSegP.x - w / 2 + cVel.x, lastSegP.y - w / 2 + cVel.y];
     var eye2P = [lastSegP.x - w / 2 + cVel.x * 0.7, lastSegP.y - w / 2 + cVel.y * 0.7];
 
-    drawCircle2(ctx, eye1P, w, "white", "rgba(0, 0, 0, 1)", 2);
-    drawCircle2(ctx, eye2P, w, "rgba(206, 202, 202, 1)", "rgba(0, 0, 0, 1)", 2);
-    drawCircle2(ctx, [eye2P[0] + cVel.x * 0.25 + w / 16, eye2P[1] + cVel.y * 0.25 + w / 16], w / 4, "black", null, 0);
+    drawCircle2(_ctx, eye1P, w, "white", "rgba(0, 0, 0, 1)", 2);
+    drawCircle2(_ctx, eye2P, w, "rgba(206, 202, 202, 1)", "rgba(0, 0, 0, 1)", 2);
+    drawCircle2(_ctx, [eye2P[0] + cVel.x * 0.25 + w / 16, eye2P[1] + cVel.y * 0.25 + w / 16], w / 4, "black", null, 0);
   }
 
   static instantiate(pos, thick = r_range(5, 20)) {
@@ -246,7 +246,7 @@ class Spider {
     }
   }
 
-  render() {
+  render(_ctx = ctx) {
     return;
   }
 
@@ -295,7 +295,7 @@ class RobotArm extends RopeEntity {
     super(pos, null, color, 2, _segAmount, _segSpace, dampingFactor);
     this.segments[0].setAnchor(pos);
     this.type = "ROBOTARM";
-    this.isRigid = true;
+    this.stiffness = 1;
     this.gravity.y = -100;
     this.targetObject = targetObject;
   }
@@ -315,8 +315,8 @@ class RobotArm extends RopeEntity {
     }
   }
 
-  render() {
-    super.render();
+  render(_ctx = ctx) {
+    super.render(ctx);
   }
 
   static instantiate(pos) {

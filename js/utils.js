@@ -7,11 +7,13 @@ class ContextMenu {
     this.shape = null;
     this.airPusher = null;
     this.w = 100;
-    this.h = 40;
+    this.h = 80;
+    this.btnH = 32;
     this.hasHov = false;
     this.hovPath = "";
-    this.color = "rgba(35, 44, 49, 0.81)";
+    this.color = "rgba(35, 44, 49, 1)";
     this.selSlider = null;
+    this.fontColor = ["grey", "white"];
     this.init();
   }
 
@@ -24,7 +26,12 @@ class ContextMenu {
         { label: "Thickness", t: "slider", get: () => this.target.thick, set: (v) => (this.target.thick = v), min: 1, max: 40, step: 1 },
         { label: "Gravity X", t: "slider", get: () => this.target.gravity.x, set: (v) => (this.target.gravity.x = v), min: -100, max: 100, step: 1 },
         { label: "Gravity Y", t: "slider", get: () => this.target.gravity.y, set: (v) => (this.target.gravity.y = v), min: -100, max: 100, step: 1 },
-        { label: "Rigid", t: "switch", get: () => this.target.isRigid, set: (v) => (this.target.isRigid = v) },
+        { label: "Rigid", t: "slider", get: () => this.target.stiffness, set: (v) => (this.target.stiffness = v), min: 0, max: 0.9, step: 0.1 },
+        { label: "Chain", t: "switch", get: () => this.target.isChain, set: (v) => (this.target.isChain = v) },
+      ],
+      Color: [
+        { label: "Color1", t: "color", get: () => this.target.color, set: (v) => (this.target.color = v) },
+        { label: "Color2", t: "color", get: () => this.target.color2, set: (v) => (this.target.color2 = v) },
       ],
       Duplicate: {
         label: "Duplicate",
@@ -41,6 +48,7 @@ class ContextMenu {
 
     this.shapeOptions = {
       Settings: [
+        { label: "Color", t: "color", get: () => this.target.color, set: (v) => (this.target.color = v) },
         { label: "size", t: "slider", get: () => this.target?.size.x, set: (v) => this.target.resize(v), min: 5, max: 200, step: 1 },
         { label: "mass", t: "slider", get: () => this.target?.mass, set: (v) => (this.target.mass = v), min: 0.1, max: 10000, step: 1 },
         { label: "Gravity X", t: "slider", get: () => this.target?.gravity.x, set: (v) => (this.target.gravity.x = v), min: -100, max: 100, step: 1 },
@@ -169,6 +177,7 @@ class ContextMenu {
   }
 
   show(pos = mouse.pos) {
+    menuCtx.clearRect(0, 0, menuCanvas.width, menuCanvas.height);
     pos = new Vec2(clamp(pos.x, 0, window.innerWidth - this.w), clamp(pos.y, 0, window.innerHeight - this.h));
     this.pos = pos;
     this.segment = hovSegment;
@@ -178,6 +187,7 @@ class ContextMenu {
   }
 
   hide() {
+    menuCtx.clearRect(0, 0, menuCanvas.width, menuCanvas.height);
     this.active = false;
     this.segment = null;
     this.shape = null;
@@ -192,6 +202,8 @@ class ContextMenu {
       if (mouse.clicked) {
         if (typeof option.f === "function") {
           option.f();
+          //   this.hide();
+          //   return;
         } else console.warn("No function found for option " + option.label);
       }
     } else if (type === "switch" && mouse.clicked) newValue = !value;
@@ -202,6 +214,7 @@ class ContextMenu {
       newValue = option.min + t * (option.max - option.min);
       if (option.step === 1) newValue = Math.floor(newValue);
       else if (option.step) newValue = Math.round(newValue / option.step) * option.step;
+    } else if (type === "color" && mouse.pressed) {
     }
     if (newValue != value) {
       if (typeof option.set !== "function") console.warn(`Error: ${option.label} has no setter`);
@@ -224,17 +237,22 @@ class ContextMenu {
     this.hovPath = levels.join(" > ");
   }
 
-  hasSectionSlider(section) {
-    for (const o of section) if (o.t === "slider") return true;
-    return false;
+  getSliderW(section) {
+    for (const o of section) {
+      if (o.t === "color") return 50;
+      if (o.t === "slider") return 30;
+    }
+    return 0;
   }
 
   showSection(pos, section, parentPath = "") {
+    var ctx = menuCtx;
     this.MenuDepth++;
-    var spacing = 20;
+    var spacing = this.btnH;
+    var spQ = spacing * 0.25;
     var h = spacing * section.length + 10;
 
-    let sliderW = this.hasSectionSlider(section) ? 30 : 0;
+    let sliderW = this.getSliderW(section);
     var w = this.getWidthOfSection(section) + 20 + sliderW;
     let sliderX = pos[0] + w - sliderW - 10;
 
@@ -247,8 +265,11 @@ class ContextMenu {
 
     for (let i = 0; i < section.length; i++) {
       var opt = section[i];
-      drawRect(pos[0], pos[1], w + 4, spacing, addColor(bgrClr, "rgba(0, 0, 0, 1)", i * 0.1));
+
       var isHov = pointInRect(mouse.pos, new Vec2(pos[0], pos[1]), new Vec2(w + 4, spacing - 1));
+
+      var btnClr = setAlpha(addColor(bgrClr, "rgba(0, 0, 0, 1)", i * 0.1), isHov ? 1 : 0.81);
+      drawRect(pos[0], pos[1], w + 4, spacing, btnClr, null, menuCtx);
       if (isHov) this.hasHov = true;
       var type = opt.t;
       var value = typeof opt.get === "function" ? opt.get() : null;
@@ -256,11 +277,11 @@ class ContextMenu {
       if (opt.section && Array.isArray(opt.section)) {
         if (isHov) this.hovPath = currentPath;
         var clr = isHov ? "white" : "rgba(130, 130, 130, 1)";
-        drawText(ctx, [pos[0] + 5, pos[1] - 4], opt.label, clr, null, 14, false);
-        drawText(ctx, [pos[0] + w - 12, pos[1] - 3], "▶", clr, null, 8, false);
+        drawText(ctx, [pos[0] + 5, pos[1] - 4 + spQ], opt.label, clr, null, 14, false);
+        drawText(ctx, [pos[0] + w - 12, pos[1] - 3 + spQ], "▶", clr, null, 8, false);
         if (isHov || (this.hovPath && this.hovPath.includes(opt.label))) {
           var p = [pos[0] + w, pos[1]];
-          this.showSection(p, opt.section, currentPath, pos[0]);
+          this.showSection(p, opt.section, currentPath);
         }
       } else {
         if (isHov && (!this.selSlider || this.selSlider === opt)) {
@@ -268,26 +289,33 @@ class ContextMenu {
           this.hovPath = currentPath;
         }
         var clr = isHov ? "white" : "rgba(130, 130, 130, 1)";
-        drawText(ctx, [pos[0] + 5, pos[1] - 4], opt.label, clr, null, 14, false);
-        if (type === "switch") drawCircle2(ctx, [pos[0] + w - 20, pos[1] + 10], 5, value ? "green" : "red", "white", 1);
-        else if (type === "slider") drawSlider(ctx, [sliderX, pos[1] + 8], [sliderW, 6], value, opt.min, opt.max, this.selSlider === opt ? "white" : "grey");
+        drawText(ctx, [pos[0] + 5, pos[1] - 4 + spQ], opt.label, clr, null, 14, false);
+        if (type === "switch") drawCircle2(ctx, [pos[0] + w - 20, pos[1] + 10 + spQ], 5, value ? "green" : "red", "white", 1);
+        else if (type === "slider") drawSlider(ctx, [sliderX, pos[1] + 8 + spQ], [sliderW, 6], value, opt.min, opt.max, this.selSlider === opt ? "white" : "grey");
+        else if (type === "color") {
+          var curClr = opt.get();
+          var newClr = drawColorPicker(ctx, [sliderX, pos[1] + spQ], [sliderW, spacing * 0.5], curClr);
+          if (mouse.pressed && newClr && newClr !== curClr) opt.set(newClr);
+        }
       }
       pos[1] += spacing;
     }
   }
   render() {
     if (!this.active) return;
+    menuCtx.clearRect(0, 0, menuCanvas.width, menuCanvas.height);
+    if (this.target) this.target.render(menuCtx);
     if (!mouse.pressed) this.selSlider = null;
     this.scrollDir = "right";
     this.hasHov = false;
     this.MenuDepth = 0;
     this.target = this.segment?.rope || this.shape || this.airPusher;
     var sections = this.segment ? this.segOptions : this.shape ? this.shapeOptions : this.airPusher ? this.airPusherOptions : this.menuOptions;
-    var spacing = 20;
+    var spacing = this.btnH;
     this.h = Object.keys(sections).length * (spacing + 2);
 
-    // drawRect(this.pos.x, this.pos.y, this.w, this.h, this.color);
     var pos = [this.pos.x, this.pos.y];
+    drawRect(pos[0], pos[1], this.w, this.h, "rgba(0,0,0,0)", "white", menuCtx);
 
     let i = -1;
     for (const section in sections) {
@@ -296,32 +324,35 @@ class ContextMenu {
         this.hovPath = section;
         this.hasHov = true;
       }
-      drawRect(pos[0], pos[1], this.w, spacing, this.hovPath === section ? "white" : this.color);
-
       var sectionValue = sections[section];
-      var clr = this.hovPath === section ? "black" : "white";
-      drawText(ctx, [pos[0] + 5, pos[1] - 4], section, clr, null, 14, false);
+      if (sectionValue.label === "Control" && typeof this.target.control !== "function") continue;
+
+      var btnClr = setAlpha(this.color, this.hovPath === section ? 0.9 : 0.6);
+      var clr = this.fontColor[this.hovPath === section ? 1 : 0];
+      drawRect(pos[0], pos[1], this.w, spacing, btnClr, null, menuCtx);
+      drawText(menuCtx, [pos[0] + 5, pos[1] - 6 + spacing * 0.25], section, clr, null, 14, false);
       var hasSubMenu = Array.isArray(sectionValue);
-      if (hasSubMenu) drawText(ctx, [pos[0] + this.w - 20, pos[1] - 4], "▶", clr, null, 8, false);
+      if (hasSubMenu) drawText(menuCtx, [pos[0] + this.w - 20, pos[1] - 5 + spacing * 0.25], "▶", clr, null, 8, false);
       if (this.hovPath.includes(section)) {
         if (hasSubMenu) {
           var p = [pos[0] + this.w, pos[1]];
           this.showSection(p, sectionValue, section);
         } else {
           var opt = sectionValue;
+
           var value = typeof opt.get === "function" ? opt.get() : null;
-          if (!this.selSlider || this.selSlider === opt) this.handleHov(opt, value, 40, 40);
+          if (!this.selSlider || this.selSlider === opt) this.handleHov(opt, value, 40, 40, menuCtx);
         }
       }
       pos[1] += spacing;
     }
     if (mouse.clicked && this.hovPath.length === 0) this.hide();
-    if (!this.hasHov) {
+    if (!this.hasHov && !mouse.pressed) {
       setTimeout(() => {
         if (!this.hasHov) this.hovPath = "";
       }, 0);
     }
-    // drawText(ctx, [100, 100], this.hovPath, "red", null, 20, false);
+    // drawText(menuCtx, [100, 100], this.hovPath, "red", null, 20, false);
   }
 }
 
@@ -476,4 +507,5 @@ function clearAll() {
   entities = [];
   airPushers = [];
   hovAirPusher = selAirPusher = hovDirPusher = selDirPusher = hovSegment = selSegment = hovShape = selShape = null;
+  player = null;
 }

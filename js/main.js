@@ -2,6 +2,9 @@ var screenCenter = new Vec2(window.innerWidth / 2, window.innerHeight / 2);
 
 let player = null;
 
+var input = new Input();
+var mouse = new Mouse();
+
 //	COLLISIONS
 let collisionSegmentInteval = 2;
 let colCellSize = window.innerWidth / 8;
@@ -51,28 +54,6 @@ let curFps = 0;
 let fps = 0;
 let lastFpsTimer = performance.now();
 
-function render() {
-  ctx.fillStyle = "rgba(0, 0, 0, 1)";
-  ctx.fillRect(0, 0, _canvas.width, _canvas.height);
-  drawText(ctx, [window.innerWidth / 2, window.innerHeight * 0.4], "Ropes", "white", null, 50);
-  for (const a of airPushers) a.render();
-  for (const r of ropes) r.render();
-  for (const s of shapes) s.render();
-  for (const e of entities) e.render();
-
-  var seg = hovSegment ? hovSegment : selSegment;
-  if (seg) {
-    var lineWidth = Math.max(8, seg.rope.thick * 2);
-    drawRect(seg.pos.x - lineWidth / 2, seg.pos.y - lineWidth / 2, lineWidth, lineWidth, "rgba(0,0,0,0)", "yellow");
-  }
-  contextMenu.render();
-  if (colGrid.shown) colGrid.show();
-  document.body.style.cursor = selSegment || selShape || selAirPusher || selDirPusher ? "grab" : hovAirPusher || hovDirPusher || hovSegment || hovShape ? "pointer" : "default";
-  if (contextMenu.selSlider) document.body.style.cursor = "grabbing";
-  else if (document.body.style.cursor === "default" && contextMenu.active && contextMenu.hovPath.length > 0) document.body.style.cursor = "pointer";
-  drawText(ctx, [window.innerWidth - 30, window.innerHeight - 30], "fps " + fps, "white", null, 12, true);
-}
-
 function updateSegSelection() {
   if (hovSegment && !selSegment && mouse.clicked) {
     selSegment = hovSegment;
@@ -117,7 +98,7 @@ function update() {
   for (const e of entities) e.update();
   if (colGrid.active) colGrid.update();
   render();
-  if (useMouse) updateSegSelection();
+  if (!contextMenu.active || !contextMenu.hovPath) updateSegSelection();
   mouse.reset();
   input.reset();
 }

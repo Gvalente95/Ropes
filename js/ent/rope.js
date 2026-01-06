@@ -154,12 +154,18 @@ class Rope {
     this.damp = _damp;
     this.gravity = new Vec2(gravity.x, gravity.y);
     this.color = color;
-    this.isRigid = false;
     this.groundFriction = ropeGroundFriction;
     this.color2 = getRandomColor();
     this.thick = thick;
+    this.isChain = false;
+    this.stiffness = 0;
     this.stripesOccurence = r_range_int(0, 50);
     this.init(start, end);
+  }
+
+  setChain(stiffness) {
+    this.stiffness = stiffness;
+    this.isChain = stiffness > 0;
   }
 
   duplicate() {
@@ -267,14 +273,19 @@ class Rope {
   }
 
   rigidifySegments() {
+    const stiffness = this.stiffness; // Lower value = smoother, more flexible
     for (let i = 0; i < this.segments.length - 1; i++) {
       const seg = this.segments[i];
       const nextSeg = this.segments[i + 1];
+      if (nextSeg.isAnchor) continue;
       const distance = magnitude_v2(seg.pos, nextSeg.pos) || 0.0001;
       const diff = distance - this.segSpace;
       if (Math.abs(diff) > 0.001) {
         const angle = Math.atan2(nextSeg.pos.y - seg.pos.y, nextSeg.pos.x - seg.pos.x);
-        nextSeg.pos = new Vec2(seg.pos.x + Math.cos(angle) * this.segSpace, seg.pos.y + Math.sin(angle) * this.segSpace);
+        const targetX = seg.pos.x + Math.cos(angle) * this.segSpace;
+        const targetY = seg.pos.y + Math.sin(angle) * this.segSpace;
+        nextSeg.pos.x = lerp(nextSeg.pos.x, targetX, stiffness);
+        nextSeg.pos.y = lerp(nextSeg.pos.y, targetY, stiffness);
       }
     }
   }
@@ -308,7 +319,7 @@ class Rope {
       this.applyConstraits();
       if (colGrid.active && n % collisionSegmentInteval === 0) this.applyCollisions(n);
     }
-    if (this.isRigid) this.rigidifySegments();
+    if (this.stiffness) this.rigidifySegments();
   }
 
   handleShapeCollision(seg, shape = null) {
@@ -446,10 +457,11 @@ class Rope {
       }
     }
   }
-  render(hasCircle = true) {
+  render(_ctx = ctx) {
     var isHighlight = (selSegment && selSegment.rope === this) || (prevHov && prevHov.rope === this);
     var lineWidth = this.thick;
     var lw = lineWidth / 2;
+    var transparent = "rgba(0,0,0,0)";
     var circles = [];
 
     var lineClr = isHighlight ? setAlpha(this.color, 0.8) : this.color;
@@ -469,14 +481,19 @@ class Rope {
       if (i < this.segments.length - 1) {
         var nextSeg = this.segments[i + 1];
         var end = nextSeg.pos;
-        drawLine(ctx, [seg.pos.x, seg.pos.y], [end.x, end.y], curClr, lineWidth, 0);
-        if (hasCircle) drawCircle2(ctx, [seg.pos.x, seg.pos.y], lw, curClr, "rgba(0,0,0,0)", 0);
-      } else if (hasCircle) {
-        drawCircle2(ctx, [seg.pos.x, seg.pos.y], lw, curClr, "rgba(0,0,0,0)", 0);
+        if (this.isChain) {
+          drawCircle2(_ctx, [seg.pos.x, seg.pos.y], lw, transparent, curClr, 2);
+        } else {
+          drawLine(_ctx, [seg.pos.x, seg.pos.y], [end.x, end.y], curClr, lineWidth, 0);
+          drawCircle2(_ctx, [seg.pos.x, seg.pos.y], lw, curClr, transparent, 0);
+        }
+      } else {
+        if (this.isChain) drawCircle2(_ctx, [seg.pos.x, seg.pos.y], lw, transparent, curClr, 2);
+        else drawCircle2(_ctx, [seg.pos.x, seg.pos.y], lw, curClr, transparent, 0);
       }
-      if (hasCircle && seg.isAnchor && showAnchors) circles.push([seg.pos, 4, curClr, "black", 1]);
+      if (seg.isAnchor && showAnchors) circles.push([seg.pos, 4, curClr, "black", 1]);
     }
-    for (const c of circles) drawCircle2(ctx, [c[0].x, c[0].y], c[1], c[2], c[3], c[4]);
+    for (const c of circles) drawCircle2(_ctx, [c[0].x, c[0].y], c[1], c[2], c[3], c[4]);
     if (showDots) for (const seg of this.segments) drawRect(seg.pos.x - 4, seg.pos.y - 4, 8, 8, "rgba(0,0,0,0)", "yellow");
   }
 
