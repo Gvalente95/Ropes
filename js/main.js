@@ -55,6 +55,9 @@ let fps = 0;
 let lastFpsTimer = performance.now();
 
 function updateSegSelection() {
+  if (input.keys["z"]) shakeAll();
+  if (input.keys["r"]) clearAll();
+
   if (hovSegment && !selSegment && mouse.clicked) {
     selSegment = hovSegment;
     if (input.keys["alt"]) selSegment.rope.duplicate();
@@ -67,21 +70,24 @@ function updateSegSelection() {
   } else if (selSegment && !mouse.pressed) {
     selSegment.isAnchor = selSegment.prevAnchor;
     selSegment = null;
-  } else if (selSegment) selSegment.place(new Vec2(mouse.pos.x, mouse.pos.y));
+  }
+  if (selSegment) selSegment.place(new Vec2(mouse.pos.x, mouse.pos.y));
+
+  if (input.keyClicked === "enter") {
+    if (hovSegment) hovSegment.rope.control();
+    if (hovAirPusher) hovAirPusher.control();
+  } else if (input.keyClicked === "backspace" || input.keyClicked === "x") {
+    if (hovSegment && hovSegment.isAnchor) hovSegment.setAnchor(null);
+    else if (hovSegment) hovSegment.rope.remove();
+    else if (hovShape) hovShape.remove();
+    else if (hovAirPusher) hovAirPusher.remove();
+    else if (hovDirPusher) hovDirPusher.remove();
+  }
 
   if (!selShape && hovShape && mouse.clicked) {
     selShape = hovShape;
     selShape.vel = new Vec2(0, 0);
     if (input.keys["alt"]) selShape.duplicate();
-  }
-
-  if (input.keys["z"]) shakeAll();
-  if (input.keys["r"]) clearAll();
-  if (input.keyClicked === "x" || input.keyClicked === "backspace") {
-    if (hovSegment && hovSegment.isAnchor) hovSegment.setAnchor(null);
-    else if (hovSegment) ropes.splice(ropes.indexOf(hovSegment.rope), 1);
-    if (hovAirPusher) airPushers.splice(airPushers.indexOf(hovAirPusher), 1);
-    if (hovShape) shapes.splice(shapes.indexOf(hovShape), 1);
   }
 }
 

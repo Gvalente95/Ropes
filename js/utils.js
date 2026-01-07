@@ -315,7 +315,7 @@ class ContextMenu {
     this.h = Object.keys(sections).length * (spacing + 2);
 
     var pos = [this.pos.x, this.pos.y];
-    drawRect(pos[0], pos[1], this.w, this.h, "rgba(0,0,0,0)", "white", menuCtx);
+    // drawRect(pos[0], pos[1], this.w, this.h, "rgba(0,0,0,0)", "white", menuCtx);
 
     let i = -1;
     for (const section in sections) {

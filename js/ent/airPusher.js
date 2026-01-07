@@ -55,7 +55,8 @@ class AirPusher {
   }
 
   control() {
-    player = this;
+    if (player === this) player = null;
+    else player = this;
   }
 
   render(_ctx = ctx) {

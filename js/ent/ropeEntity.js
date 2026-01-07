@@ -13,8 +13,16 @@ class RopeEntity extends Rope {
   }
 
   jump(force = 10) {
-    this.vel.y = -this.maxVel.y * force;
+    this.vel.y = -this.maxVel.y * force * (this.gravity.y / 100);
     setTimeout(() => (this.vel.y = 0), 200);
+  }
+
+  dash() {
+    let p0 = this.segments[0].pos;
+    let p1 = this.segments[1].pos;
+    let angle = Math.atan2(p0.y - p1.y, p0.x - p1.x);
+    let dir = new Vec2(Math.cos(angle), Math.sin(angle));
+    this.vel = new Vec2(dir.x * this.maxVel.x * 10, dir.y * this.maxVel.y * 10);
   }
 
   steerAgent(headPos = this.segments[0].pos) {
@@ -29,34 +37,14 @@ class RopeEntity extends Rope {
     return add_v2(headPos, this.vel);
   }
 
-  controlSnake(headPos = this.segments[0].pos) {
-    if (input.keyClicked === " " && this.grounded) {
-      this.jump();
-      return headPos;
-    }
-    if (this.vel.y < -this.maxVel.y) this.vel.y += 1;
-    var inputVec = input.wasd;
-    var max = mult_v2(this.maxVel, new Vec2(2, 2));
-    var steerSpeed = 1;
-    if (!inputVec.x) this.vel.x *= 0.8;
-    else this.vel.x = clamp(this.vel.x + inputVec.x * steerSpeed, -max.x, max.x);
-    if (inputVec.y) this.vel.y = clamp(this.vel.y + inputVec.y * steerSpeed, -max.y, max.y);
-    return add_v2(headPos, this.vel);
-  }
-
-  getHeadMovement() {
-    if (this === player) return this.controlSnake();
-    else return this.steerAgent();
-  }
-
   handleEntityCollisions() {
-    var a = this.segments[0];
-    for (const s of this.segments) {
-      var p = s.pos;
+    for (let i = 0; i < 2; i++) {
+      var a = this.segments[i];
+      var p = a.pos;
       var closeSegments = colGrid.getAtPos(p.x, p.y);
       for (const b of closeSegments) {
         if (b.type === "CIRCLE" && circleOverlap(a.pos, this.thick, b.pos, b.size.x)) {
-          b.vel = add_v2(b.vel, scale_v2(this.vel, 2));
+          b.vel = add_v2(b.vel, scale_v2(this.vel, 10));
           var dx = b.pos.x - a.pos.x;
           var dy = b.pos.y - a.pos.y;
           var dist = Math.sqrt(dx * dx + dy * dy) || 0.0001;
@@ -86,13 +74,21 @@ class RopeEntity extends Rope {
     super.update();
   }
 
+  remove() {
+    console.warn("REMOVING ENT ");
+
+    var idx = entities.indexOf(this);
+    if (idx !== -1) entities.splice(idx, 1);
+  }
+
   static duplicate() {
     var rp = RopeEntity.instantiate(this.constructor, new Vec2(this.pos.x, this.pos.y));
     return rp;
   }
 
   control() {
-    player = this;
+    if (player === this) player = null;
+    else player = this;
   }
 
   render(_ctx = ctx) {
@@ -118,9 +114,35 @@ class Snake extends RopeEntity {
     this.type = "SNAKE";
   }
 
+  controlSnake(headPos = this.segments[0].pos) {
+    var noGrav = Math.abs(this.gravity.y) <= 10;
+
+    if (input.keyClicked === " " && (this.grounded || noGrav)) {
+      if (noGrav) this.dash();
+      else this.jump();
+      return headPos;
+    }
+    if (this.vel.y < -this.maxVel.y) this.vel.y += 1;
+    var inputVec = input.wasd;
+    var max = mult_v2(this.maxVel, new Vec2(2, 2));
+    var steerSpeed = 1;
+    if (!inputVec.x) this.vel.x *= 0.8;
+    else this.vel.x = clamp(this.vel.x + inputVec.x * steerSpeed, -max.x, max.x);
+    if (inputVec.y && (this.grounded || noGrav)) this.vel.y = clamp(this.vel.y + inputVec.y * steerSpeed, -max.y, max.y);
+    if (noGrav) this.vel.y *= 0.9;
+    return add_v2(headPos, this.vel);
+  }
+
+  getHeadMovement() {
+    if (this === player) return this.controlSnake();
+    else return this.steerAgent();
+  }
+
   update() {
     var newP = this.getHeadMovement();
     this.handleEntityCollisions();
+    newP.x = clamp(newP.x, this.thick / 2, window.innerWidth - this.thick / 2);
+    newP.y = clamp(newP.y, this.thick / 2, window.innerHeight - this.thick / 2);
     this.segments[0].pos = newP;
     super.update();
   }
@@ -257,6 +279,8 @@ class Spider {
   }
 
   static remove(spider) {
+    console.warn("REMOVING SPIDER ");
+
     for (const leg of spider.legs) {
       Rope.remove(leg);
     }

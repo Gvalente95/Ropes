@@ -23,6 +23,7 @@ function render() {
   displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
   if (contextMenu.active) {
     if (contextMenu.target) displayCtx.filter = "blur(3px)";
+    else displayCtx.filter = "blur(2px)";
     displayCtx.drawImage(gameCanvas, 0, 0);
     displayCtx.filter = "none";
     displayCtx.drawImage(menuCanvas, 0, 0);
@@ -49,7 +50,7 @@ function renderKeys(pos = new Vec2(50, 50)) {
   showBtn(pos, btnSize, "RMB", "RMB", "Parameters");
   pos.y += btnSize.y + 1;
   showBtn(pos, btnSize, "R", "r", "Clear");
-  pos.y += btnSize.y + 1;
+  pos.y += (btnSize.y + 1) * 2;
 
   if (player) {
     var inputs = ["w", "a", "s", "d"];
@@ -76,7 +77,8 @@ function renderKeys(pos = new Vec2(50, 50)) {
       pos.y += (btnSize.y + 1) * 6;
     } else if (player instanceof Snake) {
       pos.y += btnSize.y + 1;
-      showBtn(pos, btnSize, "_", " ");
+      showBtn(pos, btnSize, "_", " ", "Jump");
+      pos.y += btnSize.y + 1;
     }
   }
 
@@ -92,7 +94,11 @@ function renderKeys(pos = new Vec2(50, 50)) {
     showBtn(new Vec2(pos.x, pos.y + btnSize.y + 1), btnSize, "Click", "click", "Place");
     pos.y += (btnSize.y + 1) * 2;
     showBtn(pos, btnSize, "Click + Alt", "click", "Duplicate");
-    pos.y += (btnSize.y + 1) * 2;
-    showBtn(pos, btnSize, "RMB", "RMB", "Parameters");
+    pos.y += btnSize.y + 1;
+    if (typeof hov.control === "function" || typeof hov.rope?.control === "function") {
+      showBtn(pos, btnSize, "Enter", "enter", hov === player || hov.rope === player ? "Leave" : "Control");
+      pos.y += btnSize.y + 1;
+    }
+    showBtn(pos, btnSize, "Backspace", "backspace", "Delete");
   }
 }

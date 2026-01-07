@@ -126,20 +126,24 @@ class RopeSegment {
       const velX = newPos.x - this.prevPos.x;
       if (rope.groundFriction) newPos.x = this.pos.x + velX * rope.groundFriction;
       newPos.y = floorY;
-      rope.grounded = true;
+      if (rope.gravity.y >= 0) rope.grounded = true;
     }
     const ceilingY = rope.thick / 2;
     if (newPos.y <= ceilingY) {
       const velX = newPos.x - this.prevPos.x;
       newPos.x = this.pos.x + velX * rope.groundFriction;
       newPos.y = ceilingY;
+      if (rope.gravity.y <= 0) rope.grounded = true;
     }
+    if (newPos.x <= rope.thick / 2 && rope.gravity.x <= 0) rope.grounded = true;
+    else if (newPos.x >= window.innerWidth - rope.thick / 2 && rope.gravity.x >= 0) rope.grounded = true;
 
     newPos.x = clamp(newPos.x, rope.thick, window.innerWidth - rope.thick);
     this.pos = newPos;
   }
 
   remove() {
+    console.warn("REMOVING SEG ");
     if (this.anchorObject) {
       var idx = this.anchorObject.attachedSegments.indexOf(this);
       if (idx !== -1) this.anchorObject.attachedSegments.splice(idx, 1);
@@ -173,6 +177,7 @@ class Rope {
     var last = this.segments[this.segments.length - 1];
     var end = last.isAnchor ? null : new Vec2(last.pos.x + 5, last.pos.y + 5);
     var newRope = new Rope(start, end, this.color, this.thick, this.segAmount, this.segSpace, this.damp);
+    if (!last.isAnchor) newRope.segments[newRope.segAmount - 1].setAnchor(null);
     ropes.push(newRope);
   }
   setAnchor(indices) {
@@ -338,28 +343,32 @@ class Rope {
         else if (minDist === right) seg.pos.x = shapePos.x + shapeSize.x;
         else if (minDist === top) seg.pos.y = shapePos.y;
         else if (minDist === bottom) seg.pos.y = shapePos.y + shapeSize.y;
-        if (shape !== selShape && this.segments[this.segments.length - 1].isAnchor) {
-          var overstretch = this.getSegmentOverstretchAmount(seg, seg.pos.x, seg.pos.y, 0.8);
-          if (overstretch > 0) {
-            const dir = this.getSegmentNormal(seg);
-            // shape.angle = Math.atan2(dir.y, dir.x);
-            var damping = Math.min(1, overstretch / (this.segSpace * 0.3)); // Clamp to 0-1
-            shape.vel.x *= 0.5 - damping * 0.4;
-            shape.vel.y *= 0.9 - damping * 0.3;
+        // Always push the shape out a bit when contacting the rope to avoid squishing
+        if (shape !== selShape) {
+          const dir = this.getSegmentNormal(seg);
+          const estimatedMass = shape.mass ?? (shape.type === "SQUARE" ? shape.size.x * shape.size.y : shape.size.x * shape.size.x);
+          const hardness = clamp(this.thick / (this.thick + 0.01 * estimatedMass), 0.05, 1);
+          const restitution = 0.1 + 0.4 * hardness; // visible bounces
+          const push = clamp(this.thick * 0.2 * hardness, 0.5, 5); // stronger push
 
-            if (Math.abs(dir.x) > Math.abs(dir.y)) {
-              shape.vel.x *= -1;
-              shape.vel.y *= 0.99;
-              var pushX = damping * 2;
-              if (shape.pos.x + shape.size.x / 2 < seg.pos.x) shape.pos.x -= pushX;
-              else shape.pos.x += pushX;
-            } else {
-              shape.vel.y *= -1;
-              shape.vel.x *= 0.99;
-              var pushY = damping * 2;
-              if (shape.pos.y + shape.size.y / 2 < seg.pos.y) shape.pos.y -= pushY;
-              else shape.pos.y += pushY;
-            }
+          if (Math.abs(dir.x) > Math.abs(dir.y)) {
+            const sign = dir.x >= 0 ? 1 : -1;
+            const vn = shape.vel.x * sign;
+            shape.vel.x -= (1 + restitution) * vn;
+            shape.vel.x += sign * push * 0.5; // add bounce impulse
+            shape.vel.y *= 0.985;
+            const pushX = push;
+            if (shape.pos.x + shape.size.x / 2 < seg.pos.x) shape.pos.x -= pushX;
+            else shape.pos.x += pushX;
+          } else {
+            const sign = dir.y >= 0 ? 1 : -1;
+            const vn = shape.vel.y * sign;
+            shape.vel.y -= (1 + restitution) * vn;
+            shape.vel.y += sign * push * 0.5; // add bounce impulse
+            shape.vel.x *= 0.985;
+            const pushY = push;
+            if (shape.pos.y + shape.size.y / 2 < seg.pos.y) shape.pos.y -= pushY;
+            else shape.pos.y += pushY;
           }
         }
         break;
@@ -378,32 +387,25 @@ class Rope {
         seg.pos.x = discCenter.x + (dx / dist) * pushDist;
         seg.pos.y = discCenter.y + (dy / dist) * pushDist;
         if (shape !== selShape) {
-          var overstretch = this.getSegmentOverstretchAmount(seg, seg.pos.x, seg.pos.y, 0.8);
-          if (overstretch > 0) {
-            if (!this.isSnake && !this.segments[this.segments.length - 1].isAnchor) {
-              shape.vel.x *= 0.9999;
-              shape.vel.y *= 0.9999;
-              return true;
-            }
-            const dir = this.getSegmentNormal(seg);
-            var damping = Math.min(1, overstretch / (this.segSpace * 0.3));
-            shape.vel.x *= 0.5 - damping * 0.4;
-            shape.vel.y *= 0.9 - damping * 0.3;
+          if (seg.rope.thick <= 2 && shape.size.x > 5) return;
+          const nx = dx / dist;
+          const ny = dy / dist;
+          const overlap = discRad - dist;
+          const estimatedMass = shape.mass ?? shape.size.x * shape.size.x;
+          const hardness = clamp(this.thick / (this.thick + 0.01 * estimatedMass), 0.05, 1);
+          const pushShape = clamp(overlap * 0.5 * hardness, 0, 5); // stronger push
+          shape.pos.x -= nx * pushShape;
+          shape.pos.y -= ny * pushShape;
 
-            if (Math.abs(dir.x) > Math.abs(dir.y)) {
-              shape.vel.x *= -1;
-              shape.vel.y *= 0.99;
-              var pushX = damping * 2;
-              if (shape.pos.x + shape.size.x / 2 < seg.pos.x) shape.pos.x -= pushX;
-              else shape.pos.x += pushX;
-            } else {
-              shape.vel.y *= -1;
-              shape.vel.x *= 0.99;
-              var pushY = damping * 2;
-              if (shape.pos.y + shape.size.y / 2 < seg.pos.y) shape.pos.y -= pushY;
-              else shape.pos.y += pushY;
-            }
-          }
+          const vn = shape.vel.x * nx + shape.vel.y * ny; // normal component
+          const restitution = 0.3 + 0.6 * hardness; // strong bounces
+          // Always reflect normal component
+          shape.vel.x -= (1 + restitution) * vn * nx;
+          shape.vel.y -= (1 + restitution) * vn * ny;
+          // Add extra bounce impulse based on penetration
+          const bounceBoost = overlap * 0.1 * hardness;
+          shape.vel.x += nx * bounceBoost;
+          shape.vel.y += ny * bounceBoost;
         }
 
         break;
@@ -510,10 +512,18 @@ class Rope {
 
   static remove(rope) {
     if (rope.rope !== undefined) rope = rope.rope;
+    if (contextMenu.target === rope) contextMenu.hide();
     var idx = ropes.indexOf(rope);
-    if (idx === -1) return;
+    if (idx === -1) {
+      idx = entities.indexOf(rope);
+      if (idx === -1) return;
+      if (selSegment && selSegment.rope === rope) selSegment = null;
+      for (const s of rope.segments) s.remove();
+      entities.splice(idx, 1);
+      return;
+    }
     if (selSegment && selSegment.rope === rope) selSegment = null;
-    for (const s of this.segments) s.remove();
+    for (const s of rope.segments) s.remove();
     ropes.splice(idx, 1);
   }
 

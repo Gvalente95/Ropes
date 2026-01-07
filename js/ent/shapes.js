@@ -40,17 +40,13 @@ class Shape {
     this.updateMass();
   }
 
-  control() {
-    player = this;
-  }
-
   resolveCircleCollision(dotB) {
     let newP = this.newPos;
     let dotA = this;
     let radA = dotA.size.x;
     let radB = dotB.size.x;
-    var massA = dotA.size.x;
-    var massB = dotB.size.x;
+    var massA = dotA.mass;
+    var massB = dotB.mass;
     var posA = dotA.pos;
     var posB = dotB.pos;
     let dx = newP.x - posB.x;
@@ -240,9 +236,16 @@ class Shape {
     var cs = colGrid.getAroundPos(this.center.x, this.center.y, 1);
     var colAmount = 0;
     for (const s of cs) {
-      if (s === this || s.rope) continue;
+      if (s === this) continue;
+
       var collided;
-      if (this.type === "CIRCLE" && s.type === "CIRCLE") {
+      if (s.rope) {
+        continue;
+        var thick = s.rope.thick;
+        var c = new Shape(s.pos, new Vec2(thick / 2, thick / 2), "CIRCLE");
+        c.mass = thick * 0.1;
+        collided = this.resolveCircleCollision(c);
+      } else if (this.type === "CIRCLE" && s.type === "CIRCLE") {
         collided = this.resolveCircleCollision(s);
       } else if (this.type === "SQUARE" && s.type === "SQUARE") collided = this.resolveBoxCollision(s);
       else collided = this.resolveCircleBoxCollision(s);
@@ -417,7 +420,7 @@ class Shape {
         _ctx.restore();
         break;
       case "CIRCLE":
-        drawCircle2(_ctx, [this.pos.x, this.pos.y], this.size.x, curClr, isSel ? "white" : "rgba(0, 0, 0, 1)", 2);
+        drawCircle2(_ctx, [this.pos.x, this.pos.y], this.size.x, curClr, isSel ? "white" : "rgba(0, 0, 0, 0)", 2);
         var color = addColor(curClr, "black", 0.4);
         for (let i = 0; i < 2; i++) {
           const angle = this.angle + (i * Math.PI) / 2;

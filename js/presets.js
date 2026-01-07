@@ -15,18 +15,19 @@ function snakesInSpace(am = 10) {
 function upsideDownWorld(am = 100) {
   colGrid.init(window.innerWidth / 8, false);
   SelfCollisionsInterval = 0;
-  gravity = new Vec2(0, -32);
+  gravity = new Vec2(0, 100);
   for (let i = 0; i < am; i++) {
     var p = new Vec2((window.innerWidth / am) * i, window.innerHeight);
     var r = new Rope(p, p, "rgba(101, 235, 228, 1)", 2, 40, 10);
     r.color2 = "rgba(0, 255, 51, 1)";
+    r.gravity.y = -32;
     r.segments[r.segments.length - 1].setAnchor(null);
     ropes.push(r);
   }
   shakeAll(5);
   var s = new Shape(new Vec2(0, window.innerHeight * 0.1), new Vec2(40, 40), "CIRCLE", getRandomColor(), 0, new Vec2(0, 100));
-  s.vel.x = 500;
-  s.gravity.y = 16;
+  s.vel.x = 1000;
+  s.gravity.y = 80;
   shapes.push(s);
 }
 
@@ -140,11 +141,26 @@ function snakeBasketball() {
   colGrid.init(200, false);
   gravity = new Vec2(0, 100);
   SelfCollisionsInterval = 1;
+
   var thick = 40;
   var limit = 200;
-  var snake = Snake.instantiate(new Vec2(limit, window.innerHeight - limit), thick);
-  snake.control();
-  Snake.instantiate(new Vec2(window.innerWidth - limit, window.innerHeight - limit), thick);
+
+  var h = 400;
+  var w = 400;
+    setWeb(new Vec2(5, window.innerHeight - h - 10), new Vec2(w, h), 10, 10);
+    setWeb(new Vec2(window.innerWidth - 5 - 200, window.innerHeight - h - 10), new Vec2(w, h), 10, 10);
+
+  var d = 200;
+//   setWeb(new Vec2(d, d), new Vec2(window.innerWidth - d, window.innerHeight - d), 20, 20);
+  var me = new Snake(new Vec2(limit, limit), new Vec2(limit, limit), getRandomColor(), thick);
+  me.segments[me.segments.length - 1].setAnchor(null);
+  me.control();
+  entities.push(me);
+
+  var ennemy = new Snake(new Vec2(window.innerWidth - limit, limit), new Vec2(window.innerWidth - limit, limit), getRandomColor(), thick);
+  ennemy.segments[ennemy.segments.length - 1].setAnchor(null);
+  entities.push(ennemy);
+
   var ball = Shape.instantiate("CIRCLE", screenCenter, new Vec2(40, 40));
   ball.color = "rgba(249, 120, 0, 1)";
 }
@@ -153,4 +169,26 @@ function setPreset(preset) {
   contextMenu.hide();
   clearAll();
   preset();
+}
+
+function setWeb(pos, size, amountX, amountY, color = "white") {
+  var spacingX = size.x / amountX;
+  var spacingY = size.y / amountY;
+
+  for (let x = 0; x < amountX; x++) {
+    var p = new Vec2(pos.x + x * spacingX, pos.y);
+    var r = new Rope(p, new Vec2(p.x, pos.y + size.y), color, 2, amountX, 5);
+    r.color2 = color;
+    for (let i = 0; i < r.segments.length; i++) if (i % 4 === 0) r.segments[i].setAnchor();
+
+    ropes.push(r);
+  }
+  for (let y = 0; y < amountY; y++) {
+    var p = new Vec2(pos.x, pos.y + y * spacingY);
+    var r = new Rope(p, null, color, 2, amountY, spacingY);
+    r.segments[r.segments.length - 1].setAnchor();
+    r.color2 = color;
+    for (let i = 0; i < r.segments.length; i++) if (i % 4 === 0) r.segments[i].setAnchor();
+    ropes.push(r);
+  }
 }
