@@ -19,19 +19,47 @@ class ContextMenu {
 
   init() {
     this.segOptions = {
-      Settings: [
+      Physics: [
+        { label: "Collisions", t: "switch", get: () => this.target.collisionsEnabled, set: (v) => (this.target.collisionsEnabled = v) },
         { label: "Segments", t: "slider", get: () => this.target.segAmount, set: (v) => this.target.setNewSegAmount(v), min: 3, max: 200, step: 1 },
         { label: "Spacing", t: "slider", get: () => this.target.segSpace, set: (v) => (this.target.segSpace = v), min: 1, max: 50, step: 1 },
         { label: "Damping", t: "slider", get: () => this.target.damp, set: (v) => (this.target.damp = v), min: 0.1, max: 1, step: 0.01 },
-        { label: "Thickness", t: "slider", get: () => this.target.thick, set: (v) => (this.target.thick = v), min: 1, max: 40, step: 1 },
         { label: "Gravity X", t: "slider", get: () => this.target.gravity.x, set: (v) => (this.target.gravity.x = v), min: -100, max: 100, step: 1 },
         { label: "Gravity Y", t: "slider", get: () => this.target.gravity.y, set: (v) => (this.target.gravity.y = v), min: -100, max: 100, step: 1 },
         { label: "Rigid", t: "slider", get: () => this.target.stiffness, set: (v) => (this.target.stiffness = v), min: 0, max: 0.9, step: 0.1 },
-        { label: "Chain", t: "switch", get: () => this.target.isChain, set: (v) => (this.target.isChain = v) },
       ],
-      Color: [
-        { label: "Color1", t: "color", get: () => this.target.color, set: (v) => (this.target.color = v) },
-        { label: "Color2", t: "color", get: () => this.target.color2, set: (v) => (this.target.color2 = v) },
+      Style: [
+        { label: "Thickness", t: "slider", get: () => this.target.thick, set: (v) => (this.target.thick = v), min: 1, max: 40, step: 1 },
+        { label: "Chain", t: "switch", get: () => this.target.isChain, set: (v) => (this.target.isChain = v) },
+        {
+          label: "Spines Amount",
+          t: "slider",
+          get: () => (this.target.spineOccurence === 0 ? 0 : Math.floor(this.target.segAmount / this.target.spineOccurence)),
+          set: (v) => (this.target.spineOccurence = v === 0 ? 0 : Math.floor(this.target.segAmount / v)),
+          min: 0,
+          max: function () {
+            return this.target?.segAmount || 200;
+          },
+          step: 1,
+        },
+        {
+          label: "Stripes Amount",
+          t: "slider",
+          get: () => (this.target.stripesOccurence === 0 ? 0 : Math.floor(this.target.segAmount / this.target.stripesOccurence)),
+          set: (v) => (this.target.stripesOccurence = v === 0 ? 0 : Math.floor(this.target.segAmount / v)),
+          min: 0,
+          max: function () {
+            return this.target.segAmount - 1 || 50;
+          },
+          step: 1,
+        },
+
+        { label: "SpineAngle", t: "slider", get: () => this.target.spineAngle, set: (v) => (this.target.spineAngle = v), min: -1, max: 0, step: 0.001 },
+        { label: "SpineWidth", t: "slider", get: () => this.target.spineSize.x, set: (v) => (this.target.spineSize.x = v), min: 1, max: 40, step: 1 },
+        { label: "SpineHeight", t: "slider", get: () => this.target.spineSize.y, set: (v) => (this.target.spineSize.y = v), min: 1, max: 100, step: 1 },
+        { label: "SpineColor", t: "color", get: () => this.target.spineColor, set: (v) => (this.target.spineColor = v) },
+        { label: "Body Color_1", t: "color", get: () => this.target.color, set: (v) => (this.target.color = v) },
+        { label: "Body Color_2", t: "color", get: () => this.target.color2, set: (v) => (this.target.color2 = v) },
       ],
       Duplicate: {
         label: "Duplicate",
@@ -47,15 +75,20 @@ class ContextMenu {
     };
 
     this.shapeOptions = {
-      Settings: [
-        { label: "Color", t: "color", get: () => this.target.color, set: (v) => (this.target.color = v) },
-        { label: "size", t: "slider", get: () => this.target?.size.x, set: (v) => this.target.resize(v), min: 5, max: 200, step: 1 },
+      Physics: [
+        { label: "Collisions", t: "switch", get: () => this.target.collisionsEnabled, set: (v) => (this.target.collisionsEnabled = v) },
+        { label: "movable", t: "switch", get: () => this.target.movable, set: (v) => (this.target.movable = v) },
+        { label: "static", t: "switch", get: () => this.target.static, set: (v) => (this.target.static = v) },
         { label: "mass", t: "slider", get: () => this.target?.mass, set: (v) => (this.target.mass = v), min: 0.1, max: 10000, step: 1 },
         { label: "Gravity X", t: "slider", get: () => this.target?.gravity.x, set: (v) => (this.target.gravity.x = v), min: -100, max: 100, step: 1 },
         { label: "Gravity Y", t: "slider", get: () => this.target.gravity.y, set: (v) => (this.target.gravity.y = v), min: -100, max: 100, step: 1 },
         { label: "bounce", t: "slider", get: () => this.target?.bounceFactor, set: (v) => (this.target.bounceFactor = v), min: 0, max: 1, step: 0.1 },
         { label: "angle", t: "slider", get: () => this.target?.angle, set: (v) => (this.target.angle = v), min: -Math.PI, max: Math.PI, step: 0.01 },
         { label: "drag", t: "slider", get: () => this.target?.dragFactor, set: (v) => (this.target.dragFactor = v), min: 0, max: 1, step: 0.01 },
+      ],
+      Style: [
+        { label: "Color", t: "color", get: () => this.target.color, set: (v) => (this.target.color = v) },
+        { label: "size", t: "slider", get: () => this.target?.size.x, set: (v) => this.target.resize(v), min: 5, max: 200, step: 1 },
       ],
       Duplicate: {
         label: "Duplicate",
@@ -131,11 +164,11 @@ class ContextMenu {
         { label: "Weird World", t: "function", f: () => setPreset(weirdWorld) },
         { label: "Hair World", t: "function", f: () => setPreset(hairWorld) },
         { label: "Border Grass", t: "function", f: () => setPreset(borderGrass) },
-        { label: "SnakeBasketball", t: "function", f: () => setPreset(snakeBasketball) },
+        { label: "SnakeBasketball", t: "function", f: () => setPreset(() => snakeBasketball.init()) },
       ],
       Parameters: [
         {
-          label: "Gravity",
+          label: "Gravity [GLOBAL]",
           section: [
             { label: "Gravity X", t: "slider", get: () => gravity.x, set: (v) => setNewGravity(new Vec2(v, gravity.y)), min: -100, max: 100, step: 1 },
             { label: "Gravity Y", t: "slider", get: () => gravity.y, set: (v) => setNewGravity(new Vec2(gravity.x, v)), min: -100, max: 100, step: 1 },
@@ -145,24 +178,23 @@ class ContextMenu {
         {
           label: "Collision",
           section: [
-            { label: "Collisions enabled", t: "switch", get: () => colGrid.active, set: (v) => (colGrid.active = v) },
-            { label: "Show Col Grid", t: "switch", get: () => colGrid.shown, set: (v) => (colGrid.shown = v) },
-            { label: "Col. ovrlp Mult.", t: "slider", get: () => overlapFactor, set: (v) => (overlapFactor = v), min: 0.01, max: 0.3, step: 0.001 },
-            { label: "Col. res", t: "slider", get: () => collisionSegmentInteval, set: (v) => (collisionSegmentInteval = v), min: 1, max: 100, step: 1 },
-            { label: "selfCol. res", t: "slider", get: () => SelfCollisionsInterval, set: (v) => (SelfCollisionsInterval = v), min: 0, max: 20, step: 1 },
-            { label: "Border Friction", t: "slider", get: () => ropeGroundFriction, set: (v) => (ropeGroundFriction = v), min: 0.01, max: 1, step: 0.001 },
+            { label: "Active", t: "switch", get: () => colGrid.active, set: (v) => (colGrid.active = v) },
+            { label: "Show Grid", t: "switch", get: () => colGrid.shown, set: (v) => (colGrid.shown = v) },
             { label: "Grid Size", t: "slider", get: () => colGrid.cellSize.x, set: (v) => colGrid.init(v), min: 10, max: window.innerWidth / 4, step: 1 },
+            { label: "overlap factor", t: "slider", get: () => overlapFactor, set: (v) => (overlapFactor = v), min: 0.01, max: 0.3, step: 0.001 },
+            { label: "Seg. Occurence", t: "slider", get: () => collisionSegmentInteval, set: (v) => (collisionSegmentInteval = v), min: 1, max: 100, step: 1 },
+            { label: "Seg. Occurence (Self)", t: "slider", get: () => SelfCollisionsInterval, set: (v) => (SelfCollisionsInterval = v), min: 0, max: 20, step: 1 },
           ],
         },
         {
-          label: "Shapes",
+          label: "Shapes [GLOBAL]",
           section: [
             { label: "Set Width", t: "slider", get: () => ShapeScale, set: (v) => Shape.resize(new Vec2(v, null)), min: 1, max: 100, step: 1 },
             { label: "Set Height", t: "slider", get: () => ShapeScale, set: (v) => Shape.resize(new Vec2(null, v)), min: 1, max: 100, step: 1 },
           ],
         },
         {
-          label: "Ropes",
+          label: "Ropes [GLOBAL]",
           section: [
             { label: "Rope res", t: "slider", get: () => numOfConstraintsRuns, set: (v) => (numOfConstraintsRuns = v), min: 10, max: 200, step: 1 },
             { label: "Show Segments", t: "switch", get: () => showDots, set: (v) => (showDots = v) },
@@ -170,6 +202,7 @@ class ContextMenu {
             { label: "Set Thickness", t: "slider", get: () => segThickness, set: (v) => Rope.globalModifier(v), min: 1, max: 60, step: 1 },
             { label: "Segments' amount", t: "slider", get: () => segAmount, set: (v) => Rope.globalModifier(null, v), min: 1, max: 100, step: 1 },
             { label: "SegSpace", t: "slider", get: () => segSpace, set: (v) => Rope.globalModifier(null, null, v), min: 0.01, max: 100, step: 0.001 },
+            { label: "Border Drag", t: "slider", get: () => ropeGroundFriction, set: (v) => (ropeGroundFriction = v), min: 0.01, max: 1, step: 0.001 },
           ],
         },
       ],
@@ -209,9 +242,11 @@ class ContextMenu {
     } else if (type === "switch" && mouse.clicked) newValue = !value;
     else if (type === "slider" && mouse.pressed) {
       this.selSlider = option;
+      const minVal = typeof option.min === "function" ? option.min.call(this) : option.min;
+      const maxVal = typeof option.max === "function" ? option.max.call(this) : option.max;
       let mx = Math.max(sliderX, Math.min(mouse.pos.x, sliderX + sliderW));
       let t = (mx - sliderX) / sliderW;
-      newValue = option.min + t * (option.max - option.min);
+      newValue = minVal + t * (maxVal - minVal);
       if (option.step === 1) newValue = Math.floor(newValue);
       else if (option.step) newValue = Math.round(newValue / option.step) * option.step;
     } else if (type === "color" && mouse.pressed) {
@@ -291,8 +326,11 @@ class ContextMenu {
         var clr = isHov ? "white" : "rgba(130, 130, 130, 1)";
         drawText(ctx, [pos[0] + 5, pos[1] - 4 + spQ], opt.label, clr, null, 14, false);
         if (type === "switch") drawCircle2(ctx, [pos[0] + w - 20, pos[1] + 10 + spQ], 5, value ? "green" : "red", "white", 1);
-        else if (type === "slider") drawSlider(ctx, [sliderX, pos[1] + 8 + spQ], [sliderW, 6], value, opt.min, opt.max, this.selSlider === opt ? "white" : "grey");
-        else if (type === "color") {
+        else if (type === "slider") {
+          const minVal = typeof opt.min === "function" ? opt.min.call(this) : opt.min;
+          const maxVal = typeof opt.max === "function" ? opt.max.call(this) : opt.max;
+          drawSlider(ctx, [sliderX, pos[1] + 8 + spQ], [sliderW, 6], value, minVal, maxVal, this.selSlider === opt ? "white" : "grey");
+        } else if (type === "color") {
           var curClr = opt.get();
           var newClr = drawColorPicker(ctx, [sliderX, pos[1] + spQ], [sliderW, spacing * 0.5], curClr);
           if (mouse.pressed && newClr && newClr !== curClr) opt.set(newClr);
@@ -379,12 +417,14 @@ class CollisionGrid {
     if (!this.active) return;
     this.cellMap = new Map();
     for (const r of ropes) {
+      if (!r.collisionsEnabled) continue;
       for (let i = 0; i < r.segments.length; i += 1) {
         var s = r.segments[i];
         this.addToMap(s, new Vec2(s.pos.x, s.pos.y));
       }
     }
     for (const s of shapes) {
+      if (!s.collisionsEnabled) continue;
       var p = s.type === "CIRCLE" ? s.pos : new Vec2(s.pos.x + s.size.x / 2, s.pos.y + s.size.y / 2);
       this.addToMap(s, p);
     }
@@ -470,7 +510,7 @@ class CollisionGrid {
 var contextMenu = new ContextMenu();
 window.addEventListener("contextmenu", (e) => {
   e.preventDefault();
-  contextMenu.show(new Vec2(e.clientX - contextMenu.w * 0.5, e.clientY - 15));
+  contextMenu.show(new Vec2(e.clientX, e.clientY));
 });
 
 function unanchorAll() {
@@ -508,4 +548,26 @@ function clearAll() {
   airPushers = [];
   hovAirPusher = selAirPusher = hovDirPusher = selDirPusher = hovSegment = selSegment = hovShape = selShape = null;
   player = null;
+}
+
+function ensureElementRemoval(element) {
+  if (contextMenu.target === element) contextMenu.hide();
+  if (hovSegment === element) hovSegment = null;
+  if (hovSegment === element.rope) hovSegment = null;
+  if (selSegment === element) selSegment = null;
+  if (hovAirPusher === element) hovAirPusher = null;
+  if (hovDirPusher === element) hovDirPusher = null;
+  if (hovShape === element) hovShape = null;
+  if (selShape === element) selShape = null;
+  if (selAirPusher === element) selAirPusher = null;
+  if (selDirPusher === element) selDirPusher = null;
+  if (player === this) player = null;
+  if (player2 === this) player2 = null;
+
+  var idx = entities.indexOf(element);
+  if (idx !== -1) entities.splice(idx, 1);
+  else idx = shapes.indexOf(element);
+  if (idx !== -1) shapes.splice(idx, 1);
+  else idx = ropes.indexOf(element);
+  if (idx !== -1) ropes.splice(element);
 }

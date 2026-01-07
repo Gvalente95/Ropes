@@ -1,6 +1,7 @@
 class Input {
   constructor() {
     this.keys = {};
+    this.codeClicked = null;
     this.lastKey = null;
     this.keyClicked = null;
     this.wasd = new Vec2(0, 0);
@@ -10,11 +11,12 @@ class Input {
   update() {
     this.wasd.x = (this.keys["d"] === true) - (this.keys["a"] === true);
     this.wasd.y = (this.keys["s"] === true) - (this.keys["w"] === true);
-    this.arrows.x = (this.keys["arrowleft"] === true) - (this.keys["arrowright"] === true);
-    this.arrows.y = (this.keys["arrowup"] === true) - (this.keys["arrowdown"] === true);
+    this.arrows.x = (this.keys["arrowright"] === true) - (this.keys["arrowleft"] === true);
+    this.arrows.y = (this.keys["arrowdown"] === true) - (this.keys["arrowup"] === true);
   }
   reset() {
     this.keyClicked = null;
+    this.codeClicked = null;
   }
 }
 
@@ -25,6 +27,7 @@ window.addEventListener("keydown", (e) => {
   if (prevent.includes(ek)) e.preventDefault();
   input.keys[ek] = true;
   input.keyClicked = ek;
+  input.codeClicked = e.code;
   input.update();
 });
 window.addEventListener("keyup", (e) => {

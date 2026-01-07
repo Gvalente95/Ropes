@@ -8,12 +8,14 @@ class RopeEntity extends Rope {
     this.steerSpeed = mult_v2(this.maxVel, this.steerFactor);
     this.steerChance = 100;
     this.groundFriction = 0.94;
+    this.alive = true;
     this.jumpChance = 100;
     this.grounded = false;
   }
 
-  jump(force = 10) {
-    this.vel.y = -this.maxVel.y * force * (this.gravity.y / 100);
+  jump(force = 20) {
+    if (this.vel.y <= 0) this.vel.y = 0;
+    this.vel.y -= this.maxVel.y * force * (this.gravity.y / 100);
     setTimeout(() => (this.vel.y = 0), 200);
   }
 
@@ -30,44 +32,14 @@ class RopeEntity extends Rope {
     else if (headPos.x >= window.innerWidth - this.thick * 4) this.vel.x -= this.steerSpeed.x;
     else if (r_range_int(0, 100) <= this.steerChance) this.vel.x = clamp(this.vel.x + (Math.random() * 2 - 1) * this.steerSpeed.x, -this.maxVel.x, this.maxVel.x);
 
-    if (headPos.y <= this.thick * 4) this.vel.y += this.steerSpeed.y;
-    else if (headPos.y >= window.innerHeight - this.thick * 4) this.vel.y -= this.steerSpeed.y;
+    var lim = this.segAmount * 0.2 * this.segSpace;
+    if (!this.grounded) {
+      if (this.vel.y < 0) this.vel.y += this.gravity.y * 0.1;
+    } else if (headPos.y <= lim) this.vel.y += this.steerSpeed.y;
+    else if (headPos.y >= window.innerHeight - lim) this.vel.y -= this.steerSpeed.y;
     else if (r_range_int(0, 100) <= this.steerChance) this.vel.y = clamp(this.vel.y + (Math.random() * 2 - 1) * this.steerSpeed.y, -this.maxVel.y, this.maxVel.y);
     if (this.grounded && r_range_int(0, this.jumpChance) == 0) this.jump(10);
     return add_v2(headPos, this.vel);
-  }
-
-  handleEntityCollisions() {
-    for (let i = 0; i < 2; i++) {
-      var a = this.segments[i];
-      var p = a.pos;
-      var closeSegments = colGrid.getAtPos(p.x, p.y);
-      for (const b of closeSegments) {
-        if (b.type === "CIRCLE" && circleOverlap(a.pos, this.thick, b.pos, b.size.x)) {
-          b.vel = add_v2(b.vel, scale_v2(this.vel, 10));
-          var dx = b.pos.x - a.pos.x;
-          var dy = b.pos.y - a.pos.y;
-          var dist = Math.sqrt(dx * dx + dy * dy) || 0.0001;
-          var pushDist = (this.thick + b.size.x) / 2 - dist;
-          if (pushDist > 0) {
-            b.pos.x += (dx / dist) * pushDist * 0.5;
-            b.pos.y += (dy / dist) * pushDist * 0.5;
-          }
-        } else if (b.type === "SQUARE" && circleInRect(a.pos, this.thick, b.pos, b.size)) {
-          b.vel = add_v2(b.vel, scale_v2(this.vel, 2));
-          var closestX = Math.max(b.pos.x, Math.min(a.pos.x, b.pos.x + b.size.x));
-          var closestY = Math.max(b.pos.y, Math.min(a.pos.y, b.pos.y + b.size.y));
-          var dx = a.pos.x - closestX;
-          var dy = a.pos.y - closestY;
-          var dist = Math.sqrt(dx * dx + dy * dy) || 0.0001;
-          var pushDist = this.thick / 2 - dist;
-          if (pushDist > 0) {
-            b.pos.x += (dx / dist) * pushDist * 0.5;
-            b.pos.y += (dy / dist) * pushDist * 0.5;
-          }
-        } else if (Math.abs(this.segments.indexOf(a) - this.segments.indexOf(b)) > 2) this.handleSegCollision(a, b, 0.2);
-      }
-    }
   }
 
   update() {
@@ -75,10 +47,7 @@ class RopeEntity extends Rope {
   }
 
   remove() {
-    console.warn("REMOVING ENT ");
-
-    var idx = entities.indexOf(this);
-    if (idx !== -1) entities.splice(idx, 1);
+    ensureElementRemoval(this);
   }
 
   static duplicate() {
@@ -87,13 +56,19 @@ class RopeEntity extends Rope {
   }
 
   control() {
-    if (player === this) player = null;
-    else player = this;
+    if (!player) player = this;
+    else if (player === this) player = null;
+  }
+
+  control2() {
+    if (!player2) player2 = this;
+    else if (player2 === this) player2 = null;
   }
 
   render(_ctx = ctx) {
     super.render(_ctx);
-    if (this === player) drawText(_ctx, [this.segments[0].pos.x, this.segments[0].pos.y - 50], "YOU", "white", null, 12);
+    if (player === this) drawText(_ctx, [this.segments[0].pos.x, this.segments[0].pos.y - 50], "PLAYER 1", "white", null, 12);
+    else if (player2 === this) drawText(_ctx, [this.segments[0].pos.x, this.segments[0].pos.y - 50], "PLAYER 2", "white", null, 12);
   }
 
   static instantiate(constructor, pos) {
@@ -111,36 +86,81 @@ class RopeEntity extends Rope {
 class Snake extends RopeEntity {
   constructor(start, end = null, color = getRandomColor(), thick = 20, _segAmount = segAmount, _segSpace = segSpace, damp = dampingFactor) {
     super(start, end, color, thick, segAmount, segSpace, damp);
+    this.stiffness = 0.5;
     this.type = "SNAKE";
+    this.setSpines();
+  }
+
+  handleEntityCollisions() {
+    for (let i = 0; i < this.segments.length; i++) {
+      var a = this.segments[i];
+      var p = a.pos;
+      var closeSegments = colGrid.getAtPos(p.x, p.y);
+      for (const b of closeSegments) {
+        if (!b.movable) continue;
+        if (b.type === "CIRCLE" && circleOverlap(a.pos, this.thick, b.pos, b.size.x)) {
+          b.vel = add_v2(b.vel, scale_v2(this.vel, 10));
+          b.vel.x = clamp(b.vel.x, -1000, 1000);
+          b.vel.y = clamp(b.vel.y, -1000, 1000);
+
+          var dx = b.pos.x - a.pos.x;
+          var dy = b.pos.y - a.pos.y;
+          var dist = Math.sqrt(dx * dx + dy * dy) || 0.0001;
+          var pushDist = (this.thick + b.size.x) / 2 - dist;
+          if (pushDist > 0) {
+            b.pos.x += (dx / dist) * pushDist * 0.5;
+            b.pos.y += (dy / dist) * pushDist * 0.5;
+          }
+        } else if (b.type === "SQUARE" && circleInRect(a.pos, this.thick, b.pos, b.size)) {
+          if (!b.movable || b.static || b.grounded) this.grounded = true;
+          return;
+          b.vel = add_v2(b.vel, scale_v2(this.vel, 2));
+          var closestX = Math.max(b.pos.x, Math.min(a.pos.x, b.pos.x + b.size.x));
+          var closestY = Math.max(b.pos.y, Math.min(a.pos.y, b.pos.y + b.size.y));
+          var dx = a.pos.x - closestX;
+          var dy = a.pos.y - closestY;
+          var dist = Math.sqrt(dx * dx + dy * dy) || 0.0001;
+          var pushDist = this.thick / 2 - dist;
+          if (pushDist > 0) {
+            b.pos.x += (dx / dist) * pushDist * 0.5;
+            b.pos.y += (dy / dist) * pushDist * 0.5;
+          }
+        } else if (Math.abs(this.segments.indexOf(a) - this.segments.indexOf(b)) > 2) this.handleSegCollision(a, b, 0.2);
+      }
+    }
   }
 
   controlSnake(headPos = this.segments[0].pos) {
     var noGrav = Math.abs(this.gravity.y) <= 10;
 
-    if (input.keyClicked === " " && (this.grounded || noGrav)) {
+    var jumpKey = this === player2 ? "enter" : " ";
+    var movKeys = this === player2 ? input.arrows : input.wasd;
+    if (input.keyClicked === jumpKey && (this.grounded || noGrav)) {
       if (noGrav) this.dash();
       else this.jump();
       return headPos;
     }
-    if (this.vel.y < -this.maxVel.y) this.vel.y += 1;
-    var inputVec = input.wasd;
+    if (!this.grounded) this.vel.y = 0;
+    else if (this.vel.y < -this.maxVel.y) this.vel.y += 1;
+    var inputVec = movKeys;
     var max = mult_v2(this.maxVel, new Vec2(2, 2));
     var steerSpeed = 1;
     if (!inputVec.x) this.vel.x *= 0.8;
     else this.vel.x = clamp(this.vel.x + inputVec.x * steerSpeed, -max.x, max.x);
     if (inputVec.y && (this.grounded || noGrav)) this.vel.y = clamp(this.vel.y + inputVec.y * steerSpeed, -max.y, max.y);
-    if (noGrav) this.vel.y *= 0.9;
+    this.vel.y *= 0.999;
     return add_v2(headPos, this.vel);
   }
 
   getHeadMovement() {
-    if (this === player) return this.controlSnake();
+    if (!this.alive) return this.segments[0].pos;
+    if (this === player || this === player2) return this.controlSnake();
     else return this.steerAgent();
   }
 
   update() {
     var newP = this.getHeadMovement();
-    this.handleEntityCollisions();
+    if (this.collisionsEnabled) this.handleEntityCollisions();
     newP.x = clamp(newP.x, this.thick / 2, window.innerWidth - this.thick / 2);
     newP.y = clamp(newP.y, this.thick / 2, window.innerHeight - this.thick / 2);
     this.segments[0].pos = newP;

@@ -137,33 +137,6 @@ function borderGrass() {
   Shape.removeAll();
 }
 
-function snakeBasketball() {
-  colGrid.init(200, false);
-  gravity = new Vec2(0, 100);
-  SelfCollisionsInterval = 1;
-
-  var thick = 40;
-  var limit = 200;
-
-  var h = 400;
-  var w = 400;
-    setWeb(new Vec2(5, window.innerHeight - h - 10), new Vec2(w, h), 10, 10);
-    setWeb(new Vec2(window.innerWidth - 5 - 200, window.innerHeight - h - 10), new Vec2(w, h), 10, 10);
-
-  var d = 200;
-//   setWeb(new Vec2(d, d), new Vec2(window.innerWidth - d, window.innerHeight - d), 20, 20);
-  var me = new Snake(new Vec2(limit, limit), new Vec2(limit, limit), getRandomColor(), thick);
-  me.segments[me.segments.length - 1].setAnchor(null);
-  me.control();
-  entities.push(me);
-
-  var ennemy = new Snake(new Vec2(window.innerWidth - limit, limit), new Vec2(window.innerWidth - limit, limit), getRandomColor(), thick);
-  ennemy.segments[ennemy.segments.length - 1].setAnchor(null);
-  entities.push(ennemy);
-
-  var ball = Shape.instantiate("CIRCLE", screenCenter, new Vec2(40, 40));
-  ball.color = "rgba(249, 120, 0, 1)";
-}
 
 function setPreset(preset) {
   contextMenu.hide();

@@ -8,7 +8,11 @@ class Shape {
     this.type = type;
     this.color = color;
     this.angle = angle;
+    this.collisionsEnabled = true;
     this.angVel = 0;
+    this.movable = true;
+    this.static = false;
+    this.frameCollisionsAmount = 0;
     this.center = new Vec2(0, 0);
     this.vel = new Vec2(0, 0);
     this.bounceFactor = type === "CIRCLE" ? 0.8 : 0.5;
@@ -57,14 +61,17 @@ class Shape {
     let xDist = posB.x - posA.x;
     let yDist = posB.y - posA.y;
     let dist = Math.sqrt(xDist * xDist + yDist * yDist);
+
     const overlap = minDist - dist;
     const totalMass = massA + massB;
     let pushA = (massB / totalMass) * overlap;
     let pushB = (massA / totalMass) * overlap;
     newP.x -= xDist * (pushA / dist);
     newP.y -= yDist * (pushA / dist);
-    dotB.pos.x += xDist * (pushB / dist);
-    dotB.pos.y += yDist * (pushB / dist);
+    if (dotB.movable) {
+      dotB.pos.x += xDist * (pushB / dist);
+      dotB.pos.y += yDist * (pushB / dist);
+    }
 
     const xVelocityDiff = dotA.vel.x - dotB.vel.x;
     const yVelocityDiff = dotA.vel.y - dotB.vel.y;
@@ -203,11 +210,14 @@ class Shape {
     if (circle === a) {
       newP.x += nx * overlap * pushRatioCircle;
       newP.y += ny * overlap * pushRatioCircle;
-      if (!box.isAtBorder(box.pos, pushDirX)) box.pos.x -= nx * overlap * pushRatioBox;
-      if (!box.isAtBorder(box.pos, pushDirY)) box.pos.y -= ny * overlap * pushRatioBox;
+      if (box.movable && !box.isAtBorder(box.pos, pushDirX)) box.pos.x -= nx * overlap * pushRatioBox;
+      if (box.movable && !box.isAtBorder(box.pos, pushDirY)) box.pos.y -= ny * overlap * pushRatioBox;
     } else {
-      circle.pos.x += nx * overlap * pushRatioCircle;
-      circle.pos.y += ny * overlap * pushRatioCircle;
+      if (circle.movable) {
+        circle.pos.x += nx * overlap * pushRatioCircle;
+        circle.pos.y += ny * overlap * pushRatioCircle;
+      }
+
       newP.x -= nx * overlap * pushRatioBox;
       newP.y -= ny * overlap * pushRatioBox;
     }
@@ -232,7 +242,7 @@ class Shape {
     return true;
   }
 
-  updateShapeCollisions() {
+  handleCollisions() {
     var cs = colGrid.getAroundPos(this.center.x, this.center.y, 1);
     var colAmount = 0;
     for (const s of cs) {
@@ -251,7 +261,7 @@ class Shape {
       else collided = this.resolveCircleBoxCollision(s);
       colAmount += collided;
     }
-    return colAmount;
+    this.frameCollisionsAmount += colAmount;
   }
 
   getRotatedCorners() {}
@@ -271,17 +281,21 @@ class Shape {
       if (pos.x < minX) {
         if (this.vel.x < 0) this.vel.x *= -bounceMult;
         pos.x = minX + 1;
+        this.frameCollisionsAmount++;
       } else if (pos.x > maxX) {
         if (this.vel.x > 0) this.vel.x *= -bounceMult;
         pos.x = maxX;
+        this.frameCollisionsAmount++;
         this.vel.x *= this.dragFactor;
       }
       if (pos.y < minY) {
         if (this.vel.y < 0) this.vel.y *= -bounceMult;
         pos.y = minY + 1;
+        this.frameCollisionsAmount++;
       } else if (pos.y > maxY) {
         if (this.vel.y > 0) this.vel.y *= -bounceMult;
         pos.y = maxY;
+        this.frameCollisionsAmount++;
         this.vel.x *= this.dragFactor;
       }
     } else {
@@ -317,12 +331,14 @@ class Shape {
       if ((touchingLeft && this.vel.x < 0) || (touchingRight && this.vel.x > 0)) {
         if (Math.sign(this.vel.x) < 0.1) this.grounded = true;
         this.vel.x *= -bounceMult;
+        this.frameCollisionsAmount++;
         this.vel = scale_v2(this.vel, this.dragFactor);
       }
       if ((touchingTop && this.vel.y < 0) || (touchingBottom && this.vel.y > 0)) {
         if (Math.sign(this.vel.y) <= this.gravity.y) {
           this.grounded = true;
           this.vel.y = 0;
+          this.frameCollisionsAmount++;
         } else this.vel.y *= -bounceMult;
         this.vel = scale_v2(this.vel, this.dragFactor);
       }
@@ -347,6 +363,11 @@ class Shape {
   }
 
   updateVelocity() {
+    if (this.static) {
+      this.vel.x = this.vel.y = 0;
+      return;
+    }
+
     // If grounded and velocities are near zero, suppress gravity entirely
     this.vel.x += this.gravity.x * dt * 10;
     this.vel.y += this.gravity.y * dt * 10;
@@ -392,6 +413,7 @@ class Shape {
   }
 
   update() {
+    this.frameCollisionsAmount = 0;
     this.grounded = false;
     this.newPos = new Vec2(this.pos.x, this.pos.y);
     if (selShape === this) this.updateSelected();
@@ -400,8 +422,8 @@ class Shape {
       this.updateAngle();
     }
     this.updateBorderCollisions();
-    this.updateShapeCollisions();
-    this.pos = this.newPos;
+    if (this.collisionsEnabled) this.handleCollisions();
+    if (this.movable || this === selShape) this.pos = this.newPos;
     if (!hovShape && !selShape) this.updateHover();
     this.updateCenter();
   }
@@ -416,7 +438,7 @@ class Shape {
         const centerY = this.pos.y + this.size.y / 2;
         _ctx.translate(centerX, centerY);
         _ctx.rotate(this.angle);
-        drawRect(-this.size.x / 2, -this.size.y / 2, this.size.x, this.size.y, curClr);
+        drawRect(-this.size.x / 2, -this.size.y / 2, this.size.x, this.size.y, curClr, null, _ctx);
         _ctx.restore();
         break;
       case "CIRCLE":

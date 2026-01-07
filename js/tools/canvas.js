@@ -1,5 +1,14 @@
 let showStripes = false;
 
+var _canvas = null;
+var ctx = null;
+var displayCanvas = null;
+var displayCtx = null;
+var gameCanvas = null;
+var gameCtx = null;
+var menuCanvas = null;
+var menuCtx = null;
+
 function hslToRgb(h, s, l) {
   h = h / 360;
   s = s / 100;
@@ -100,15 +109,6 @@ function drawBezierLine(start, end, ctrl, color = "white", width = 8) {
   }
 }
 
-var _canvas = null;
-var ctx = null;
-var displayCanvas = null;
-var displayCtx = null;
-var gameCanvas = null;
-var gameCtx = null;
-var menuCanvas = null;
-var menuCtx = null;
-
 function initCanvas(size = [window.innerWidth, window.innerHeight], pos = [0, 0]) {
   // Create visible display canvas
   displayCanvas = document.createElement("canvas");
@@ -195,23 +195,78 @@ function drawTriangleBorder(ctx, p0, p1, p2, color = "white", width = 2) {
   drawLine(ctx, p2, p0, color, width);
 }
 
-function drawRect(x, y, width, height, color, strokeColor, renderCtx = ctx) {
-  var c = renderCtx;
-  var prev = c.lineWidth;
-  c.lineWidth = strokeColor ? (typeof strokeColor === "number" ? strokeColor : 1) : 1;
+function drawRect(x, y, width, height, color, strokeColor, _ctx) {
+  if (!_ctx) _ctx = ctx; // Use main ctx if not provided
+  var prev = _ctx.lineWidth;
+  _ctx.lineWidth = strokeColor ? (typeof strokeColor === "number" ? strokeColor : 1) : 1;
 
   if (color) {
-    c.fillStyle = color;
-    c.fillRect(x, y, width, height);
+    _ctx.fillStyle = color;
+    _ctx.fillRect(x, y, width, height);
     if (strokeColor && typeof strokeColor === "string") {
-      c.strokeStyle = strokeColor;
-      c.strokeRect(x, y, width, height);
+      _ctx.strokeStyle = strokeColor;
+      _ctx.strokeRect(x, y, width, height);
     }
   } else if (strokeColor && typeof strokeColor === "string") {
-    c.strokeStyle = strokeColor;
-    c.strokeRect(x, y, width, height);
+    _ctx.strokeStyle = strokeColor;
+    _ctx.strokeRect(x, y, width, height);
   }
-  c.lineWidth = prev;
+  _ctx.lineWidth = prev;
+}
+
+function drawSpine(pos, angle, curvature, width, height) {
+  // Clamp curvature to [-π, π] range where ±π = full circle rotation
+  curvature = clamp(curvature, -Math.PI, Math.PI);
+
+  const steps = Math.max(1, Math.ceil(height / 2)); // segment spacing, minimum 1
+  const segmentLength = height / steps; // length of each segment
+
+  // Total rotation distributed across all segments
+  const totalRotation = curvature * 2; // ±π represents full 2π circle
+  const angleStep = totalRotation / steps;
+
+  let currentX = pos.x;
+  let currentY = pos.y;
+  let currentAngle = angle;
+
+  for (let i = 0; i < steps; i++) {
+    const progress = i / steps; // 0 to 1
+    const taperFactor = 1 - progress; // Width decreases toward end
+    const segmentWidth = width * taperFactor;
+    const halfWidth = segmentWidth / 2;
+
+    // Define rectangle corners in local space
+    const corners = [
+      [-halfWidth, 0],
+      [halfWidth, 0],
+      [halfWidth, segmentLength],
+      [-halfWidth, segmentLength],
+    ];
+
+    // Rotate corners around current angle
+    const rotatedCorners = corners.map((corner) => {
+      const rotX = corner[0] * Math.cos(currentAngle) - corner[1] * Math.sin(currentAngle);
+      const rotY = corner[0] * Math.sin(currentAngle) + corner[1] * Math.cos(currentAngle);
+      return [currentX + rotX, currentY + rotY];
+    });
+
+    // Draw this segment
+    ctx.beginPath();
+    ctx.moveTo(rotatedCorners[0][0], rotatedCorners[0][1]);
+    for (let j = 1; j < rotatedCorners.length; j++) {
+      ctx.lineTo(rotatedCorners[j][0], rotatedCorners[j][1]);
+    }
+    ctx.closePath();
+    ctx.fillStyle = `rgba(255, 255, 255, ${0.6 * taperFactor})`;
+    ctx.fill();
+
+    // Move to next segment position along current direction
+    currentX += Math.cos(currentAngle) * segmentLength;
+    currentY += Math.sin(currentAngle) * segmentLength;
+
+    // Update angle for next segment
+    currentAngle += angleStep;
+  }
 }
 
 function drawSlider(ctx, pos, size, value, min, max, fillColor = "rgba(255, 255, 255, 1)", backgroundColor = "rgba(255, 255, 255, 0.23)") {
@@ -258,4 +313,9 @@ function drawColorPicker(ctx, pos, size, selColor = null) {
     drawText(ctx, [mouse.pos.x, mouse.pos.y - 40], hovColorRgb, "white", null, 14, true);
   }
   return hovColorRgb;
+}
+
+
+function drawVectorField(ctx, pos, size, selVec = null) {
+	
 }

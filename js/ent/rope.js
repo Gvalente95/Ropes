@@ -158,12 +158,14 @@ class Rope {
     this.damp = _damp;
     this.gravity = new Vec2(gravity.x, gravity.y);
     this.color = color;
+    this.collisionsEnabled = true;
     this.groundFriction = ropeGroundFriction;
     this.color2 = getRandomColor();
     this.thick = thick;
     this.isChain = false;
     this.stiffness = 0;
     this.stripesOccurence = r_range_int(0, 50);
+    this.setSpines(0);
     this.init(start, end);
   }
 
@@ -172,11 +174,28 @@ class Rope {
     this.isChain = stiffness > 0;
   }
 
+  setSpines(occurence = r_range_int(4, 12), color = getRandomColor(), angle = r_range(0, 0.3), curve = r_range(-Math.PI / 2, Math.PI / 2), size = new Vec2(r_range_int(this.thick / 16, this.thick), r_range_int(this.thick / 2, this.thick * 2))) {
+    this.spineOccurence = occurence;
+    this.spineColor = color;
+    this.spineAngle = angle;
+    this.spineCurvature = curve;
+    this.spineSize = size;
+    this.spineTappering = r_range_int(0, 8) !== 0;
+  }
+
   duplicate() {
-    var start = new Vec2(this.segments[0].pos.x + 5, this.segments[0].pos.y + 5);
+    var dist = this.thick * 2;
+    var start = new Vec2(this.segments[0].pos.x + dist, this.segments[0].pos.y + dist);
     var last = this.segments[this.segments.length - 1];
     var end = last.isAnchor ? null : new Vec2(last.pos.x + 5, last.pos.y + 5);
     var newRope = new Rope(start, end, this.color, this.thick, this.segAmount, this.segSpace, this.damp);
+    newRope.stiffness = this.stiffness;
+    newRope.collisionsEnabled = this.collisionsEnabled;
+    newRope.isChain = this.isChain;
+    newRope.stripesOccurence = this.stripesOccurence;
+    newRope.color2 = this.color2;
+    newRope.gravity = new Vec2(this.gravity.x, this.gravity.y);
+    newRope.groundFriction = this.groundFriction;
     if (!last.isAnchor) newRope.segments[newRope.segAmount - 1].setAnchor(null);
     ropes.push(newRope);
   }
@@ -295,81 +314,64 @@ class Rope {
     }
   }
 
-  applyCollisions(n) {
-    for (let i = 0; i < this.segments.length; i++) {
-      let a = this.segments[i];
-      if (a.isAnchor) continue;
-      for (const s of shapes) {
-        if (this.handleShapeCollision(a, s) && input.keys["shift"] && s === selShape && !s.attachedSegments.length) {
-          a.attachToShape(s);
-        }
-      }
-      if (n % SelfCollisionsInterval === 0) {
-        var closeSegments = colGrid.getAtPos(a.pos.x, a.pos.y);
-        for (const b of closeSegments) {
-          if (b.rope === undefined) continue;
-          if (b.isAnchor) continue;
-          if (Math.abs(this.segments.indexOf(a) - this.segments.indexOf(b)) > 2) {
-            this.handleSegCollision(a, b);
-          }
-        }
-      }
-    }
-  }
-
-  update() {
-    this.grounded = false;
-    for (var i = 0; i < this.segments.length; i++) this.segments[i].update();
-    for (let n = 0; n < numOfConstraintsRuns; n++) {
-      this.applyConstraits();
-      if (colGrid.active && n % collisionSegmentInteval === 0) this.applyCollisions(n);
-    }
-    if (this.stiffness) this.rigidifySegments();
-  }
-
   handleShapeCollision(seg, shape = null) {
     if (seg.anchorObject === shape) return;
     switch (shape.type) {
       case "SQUARE": {
-        var shapeSize = new Vec2(shape.size.x + this.thick, shape.size.y + this.thick);
-        var shapePos = new Vec2(shape.pos.x - this.thick / 2, shape.pos.y - this.thick / 2);
-        if (!pointInRect(seg.pos, shapePos, shapeSize)) return false;
-        let left = Math.abs(seg.pos.x - shapePos.x);
-        let right = Math.abs(seg.pos.x - (shapePos.x + shapeSize.x));
-        let top = Math.abs(seg.pos.y - shapePos.y);
-        let bottom = Math.abs(seg.pos.y - (shapePos.y + shapeSize.y));
-        let minDist = Math.min(left, right, top, bottom);
-        if (minDist === left) seg.pos.x = shapePos.x;
-        else if (minDist === right) seg.pos.x = shapePos.x + shapeSize.x;
-        else if (minDist === top) seg.pos.y = shapePos.y;
-        else if (minDist === bottom) seg.pos.y = shapePos.y + shapeSize.y;
-        // Always push the shape out a bit when contacting the rope to avoid squishing
-        if (shape !== selShape) {
-          const dir = this.getSegmentNormal(seg);
-          const estimatedMass = shape.mass ?? (shape.type === "SQUARE" ? shape.size.x * shape.size.y : shape.size.x * shape.size.x);
-          const hardness = clamp(this.thick / (this.thick + 0.01 * estimatedMass), 0.05, 1);
-          const restitution = 0.1 + 0.4 * hardness; // visible bounces
-          const push = clamp(this.thick * 0.2 * hardness, 0.5, 5); // stronger push
+        // Find closest point on rectangle to segment (like CIRCLE collision)
+        const closestX = Math.max(shape.pos.x, Math.min(seg.pos.x, shape.pos.x + shape.size.x));
+        const closestY = Math.max(shape.pos.y, Math.min(seg.pos.y, shape.pos.y + shape.size.y));
 
-          if (Math.abs(dir.x) > Math.abs(dir.y)) {
-            const sign = dir.x >= 0 ? 1 : -1;
-            const vn = shape.vel.x * sign;
-            shape.vel.x -= (1 + restitution) * vn;
-            shape.vel.x += sign * push * 0.5; // add bounce impulse
-            shape.vel.y *= 0.985;
-            const pushX = push;
-            if (shape.pos.x + shape.size.x / 2 < seg.pos.x) shape.pos.x -= pushX;
-            else shape.pos.x += pushX;
-          } else {
-            const sign = dir.y >= 0 ? 1 : -1;
-            const vn = shape.vel.y * sign;
-            shape.vel.y -= (1 + restitution) * vn;
-            shape.vel.y += sign * push * 0.5; // add bounce impulse
-            shape.vel.x *= 0.985;
-            const pushY = push;
-            if (shape.pos.y + shape.size.y / 2 < seg.pos.y) shape.pos.y -= pushY;
-            else shape.pos.y += pushY;
-          }
+        // Calculate distance from segment to closest point
+        const dx = seg.pos.x - closestX;
+        const dy = seg.pos.y - closestY;
+        const distSq = dx * dx + dy * dy;
+        const radiusSq = (this.thick / 2) * (this.thick / 2);
+
+        if (distSq >= radiusSq) return false;
+
+        const dist = Math.sqrt(distSq) || 0.0001;
+        const overlap = this.thick / 2 - dist;
+
+        // Collision normal points from closest point to segment
+        const nx = dx / dist;
+        const ny = dy / dist;
+
+        // Push segment out along normal
+        seg.pos.x = closestX + nx * (this.thick / 2);
+        seg.pos.y = closestY + ny * (this.thick / 2);
+
+        if (shape !== selShape && shape.movable) {
+          const estimatedMass = shape.mass ?? shape.size.x * shape.size.y;
+          const hardness = clamp(this.thick / (this.thick + 0.01 * estimatedMass), 0.05, 1);
+          const pushShape = clamp(overlap * 0.5 * hardness, 0, 5);
+
+          // Push shape away along normal
+          shape.pos.x -= nx * pushShape;
+          shape.pos.y -= ny * pushShape;
+
+          // Calculate segment velocity and transfer momentum (with null check)
+          const segVelX = seg.prevPos ? seg.pos.x - seg.prevPos.x : 0;
+          const segVelY = seg.prevPos ? seg.pos.y - seg.prevPos.y : 0;
+          const segVn = segVelX * nx + segVelY * ny;
+          const segMass = this.thick * 0.1;
+          const momentumTransfer = segMass / (segMass + estimatedMass * 0.01);
+
+          const vn = shape.vel.x * nx + shape.vel.y * ny; // normal component
+          const restitution = 0.3 + 0.6 * hardness; // match circle bounces
+
+          // Reflect normal component
+          shape.vel.x -= (1 + restitution) * vn * nx;
+          shape.vel.y -= (1 + restitution) * vn * ny;
+
+          // Transfer segment momentum
+          shape.vel.x += segVn * nx * momentumTransfer * hardness;
+          shape.vel.y += segVn * ny * momentumTransfer * hardness;
+
+          // Add bounce impulse based on penetration
+          const bounceBoost = overlap * 0.1 * hardness;
+          shape.vel.x += nx * bounceBoost;
+          shape.vel.y += ny * bounceBoost;
         }
         break;
       }
@@ -386,26 +388,26 @@ class Rope {
         var pushDist = discRad;
         seg.pos.x = discCenter.x + (dx / dist) * pushDist;
         seg.pos.y = discCenter.y + (dy / dist) * pushDist;
-        if (shape !== selShape) {
+        if (shape !== selShape && shape.movable) {
           if (seg.rope.thick <= 2 && shape.size.x > 5) return;
           const nx = dx / dist;
           const ny = dy / dist;
           const overlap = discRad - dist;
-          const estimatedMass = shape.mass ?? shape.size.x * shape.size.x;
-          const hardness = clamp(this.thick / (this.thick + 0.01 * estimatedMass), 0.05, 1);
+          const hardness = clamp(this.thick / (this.thick + 0.01 * shape.mass), 0.05, 1);
           const pushShape = clamp(overlap * 0.5 * hardness, 0, 5); // stronger push
           shape.pos.x -= nx * pushShape;
           shape.pos.y -= ny * pushShape;
 
+          if (seg.rope.type === "SNAKE") return;
+
           const vn = shape.vel.x * nx + shape.vel.y * ny; // normal component
           const restitution = 0.3 + 0.6 * hardness; // strong bounces
-          // Always reflect normal component
           shape.vel.x -= (1 + restitution) * vn * nx;
           shape.vel.y -= (1 + restitution) * vn * ny;
-          // Add extra bounce impulse based on penetration
-          const bounceBoost = overlap * 0.1 * hardness;
-          shape.vel.x += nx * bounceBoost;
-          shape.vel.y += ny * bounceBoost;
+
+          //   const bounceBoost = overlap * 0.1 * hardness;
+          //   shape.vel.x += nx * bounceBoost;
+          //   shape.vel.y += ny * bounceBoost;
         }
 
         break;
@@ -429,6 +431,28 @@ class Rope {
       a.pos.y += ny * correction;
       b.pos.x -= nx * correction;
       b.pos.y -= ny * correction;
+    }
+  }
+
+  handleCollisions(n) {
+    for (let i = 0; i < this.segments.length; i++) {
+      let a = this.segments[i];
+      if (a.isAnchor) continue;
+      for (const s of shapes) {
+        if (this.handleShapeCollision(a, s) && input.keys["shift"] && s === selShape && !s.attachedSegments.length) {
+          a.attachToShape(s);
+        }
+      }
+      if (n % SelfCollisionsInterval === 0) {
+        var closeSegments = colGrid.getAtPos(a.pos.x, a.pos.y);
+        for (const b of closeSegments) {
+          if (b.rope === undefined) continue;
+          if (b.isAnchor) continue;
+          if (Math.abs(this.segments.indexOf(a) - this.segments.indexOf(b)) > 2) {
+            this.handleSegCollision(a, b);
+          }
+        }
+      }
     }
   }
 
@@ -459,6 +483,49 @@ class Rope {
       }
     }
   }
+
+  update() {
+    var checkCollisions = this.collisionsEnabled && colGrid.active;
+    this.grounded = false;
+    for (var i = 0; i < this.segments.length; i++) this.segments[i].update();
+    for (let n = 0; n < numOfConstraintsRuns; n++) {
+      this.applyConstraits();
+      if (checkCollisions && n % collisionSegmentInteval === 0) this.handleCollisions(n);
+    }
+    if (this.stiffness) this.rigidifySegments();
+  }
+
+  renderSpine(_ctx, seg, i) {
+    const normal = this.getSegmentNormal(seg);
+    let spineAngle = Math.atan2(normal.y, normal.x);
+
+    const angleOffset = spineAngle > 0 && spineAngle < Math.PI ? -this.spineAngle : this.spineAngle;
+    spineAngle += angleOffset;
+
+    var lim = 0.05;
+    if (Math.abs(normal.y) > lim && spineAngle > lim && spineAngle < Math.PI - lim) {
+      spineAngle += Math.PI;
+    }
+
+    const offset = this.thick / 2;
+    const spineStart = new Vec2(seg.pos.x + Math.cos(spineAngle) * offset, seg.pos.y + Math.sin(spineAngle) * offset);
+    const baseWidth = this.spineSize.x;
+    var height = this.spineSize.y;
+    if (this.spineTappering) {
+      const spineIndex = Math.min(Math.floor(i / this.spineOccurence), this.spineOccurence - 1);
+      height = (this.spineSize.y / this.spineOccurence) * (this.spineOccurence - spineIndex);
+    }
+    const perpAngle = spineAngle + Math.PI / 2;
+    const halfWidth = baseWidth / 2;
+
+    // Triangle points: base at rope surface, tip extends outward
+    const p0 = [spineStart.x - Math.cos(perpAngle) * halfWidth, spineStart.y - Math.sin(perpAngle) * halfWidth];
+    const p1 = [spineStart.x + Math.cos(perpAngle) * halfWidth, spineStart.y + Math.sin(perpAngle) * halfWidth];
+    const p2 = [spineStart.x + Math.cos(spineAngle) * height, spineStart.y + Math.sin(spineAngle) * height];
+
+    drawTriangle(_ctx, p0, p1, p2, this.spineColor || "white", 1);
+  }
+
   render(_ctx = ctx) {
     var isHighlight = (selSegment && selSegment.rope === this) || (prevHov && prevHov.rope === this);
     var lineWidth = this.thick;
@@ -468,11 +535,14 @@ class Rope {
 
     var lineClr = isHighlight ? setAlpha(this.color, 0.8) : this.color;
     for (let i = 0; i < this.segAmount; i++) {
+      var seg = this.segments[i];
+      if (this.spineOccurence && (i + 1) % this.spineOccurence === 0) this.renderSpine(_ctx, seg, i + 1);
+
       var curClr = lineClr;
-      if (this.segments[i].anchorObject) curClr = this.segments[i].anchorObject.color;
+      if (seg.anchorObject) curClr = seg.anchorObject.color;
       else if (this.color2) curClr = addColor(lineClr, this.color2, i / this.segAmount);
       if (this.stripesOccurence && i % this.stripesOccurence === 0) curClr = addColor(curClr, "black", 0.2);
-      var seg = this.segments[i];
+
       var isColliding = false;
       var colWidth = Math.max(lineWidth, 8);
       if (!selAirPusher && !selDirPusher && !selShape && pointInRect(mouse.pos, new Vec2(seg.pos.x - colWidth, seg.pos.y - colWidth), new Vec2(colWidth * 2, colWidth * 2))) {
@@ -496,7 +566,7 @@ class Rope {
       if (seg.isAnchor && showAnchors) circles.push([seg.pos, 4, curClr, "black", 1]);
     }
     for (const c of circles) drawCircle2(_ctx, [c[0].x, c[0].y], c[1], c[2], c[3], c[4]);
-    if (showDots) for (const seg of this.segments) drawRect(seg.pos.x - 4, seg.pos.y - 4, 8, 8, "rgba(0,0,0,0)", "yellow");
+    if (showDots) for (const seg of this.segments) drawRect(seg.pos.x - 4, seg.pos.y - 4, 8, 8, "rgba(0,0,0,0)", "yellow", _ctx);
   }
 
   static globalModifier(_newThick = null, _segAmount = null, _segSpace = null) {
@@ -511,20 +581,11 @@ class Rope {
   }
 
   static remove(rope) {
-    if (rope.rope !== undefined) rope = rope.rope;
-    if (contextMenu.target === rope) contextMenu.hide();
-    var idx = ropes.indexOf(rope);
-    if (idx === -1) {
-      idx = entities.indexOf(rope);
-      if (idx === -1) return;
-      if (selSegment && selSegment.rope === rope) selSegment = null;
+    if (rope.rope !== undefined) {
+      rope = rope.rope;
       for (const s of rope.segments) s.remove();
-      entities.splice(idx, 1);
-      return;
     }
-    if (selSegment && selSegment.rope === rope) selSegment = null;
-    for (const s of rope.segments) s.remove();
-    ropes.splice(idx, 1);
+    ensureElementRemoval(rope);
   }
 
   static instantiate(start, end, isAnchored = true) {

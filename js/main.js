@@ -1,9 +1,11 @@
 var screenCenter = new Vec2(window.innerWidth / 2, window.innerHeight / 2);
 
 let player = null;
+let player2 = null;
 
 var input = new Input();
 var mouse = new Mouse();
+var snakeBasketball = new SnakeBasketball();
 
 //	COLLISIONS
 let collisionSegmentInteval = 2;
@@ -74,7 +76,7 @@ function updateSegSelection() {
   if (selSegment) selSegment.place(new Vec2(mouse.pos.x, mouse.pos.y));
 
   if (input.keyClicked === "enter") {
-    if (hovSegment) hovSegment.rope.control();
+    if (hovSegment && typeof hovSegment.rope.control === "function") hovSegment.rope.control();
     if (hovAirPusher) hovAirPusher.control();
   } else if (input.keyClicked === "backspace" || input.keyClicked === "x") {
     if (hovSegment && hovSegment.isAnchor) hovSegment.setAnchor(null);
@@ -104,6 +106,7 @@ function update() {
   for (const e of entities) e.update();
   if (colGrid.active) colGrid.update();
   render();
+  if (snakeBasketball.active) snakeBasketball.update();
   if (!contextMenu.active || !contextMenu.hovPath) updateSegSelection();
   mouse.reset();
   input.reset();
