@@ -1,109 +1,125 @@
 function snakesInSpace(am = 10) {
   colGrid.init(200, false);
   SelfCollisionsInterval = 5;
-  gravity = new Vec2(0, 0);
+  gravity = v2(0, 0);
   for (let i = 0; i < am; i++) {
     var r = Snake.instantiate(mouse.pos);
     if (i === am - 1) r.control();
   }
   for (let i = 0; i < am / 2; i++) {
     var size = r_range(10, 40);
-    Shape.instantiate("CIRCLE", rand_v2(), new Vec2(size, size));
+    Ball.instantiate(rand_v2(), v2(size, size));
   }
 }
 
-function upsideDownWorld(am = 100) {
+function forrest(am = 100) {
   colGrid.init(window.innerWidth / 8, false);
-  SelfCollisionsInterval = 0;
-  gravity = new Vec2(0, 100);
+  SelfCollisionsInterval = 50;
+  gravity = v2(0, 100);
   for (let i = 0; i < am; i++) {
-    var p = new Vec2((window.innerWidth / am) * i, window.innerHeight);
-    var r = new Rope(p, p, "rgba(101, 235, 228, 1)", 2, 40, 10);
-    r.color2 = "rgba(0, 255, 51, 1)";
-    r.gravity.y = -32;
+    var p = v2((mapSize.x / am) * i, groundLevel);
+    var _thick = r_range_int(1, 4);
+    var _segAmount = r_range_int(35, 45);
+    var _segSp = r_range_int(8, 12);
+    var r = new Rope(p, p, "rgba(101, 235, 228, 1)", _thick, _segAmount, _segSp);
+    r.gravity.y = -75;
+    r.setSpines();
+    r.spineSize.x = 5;
+    r.spineSize.y = 40;
+    r.spineOnBothSides = r_range_int(0, 2) === 0;
+    r.setPointy(-0.75);
+
+    // r.color2 = "rgba(0, 255, 51, 1)";
+
     r.segments[r.segments.length - 1].setAnchor(null);
     ropes.push(r);
   }
   shakeAll(5);
-  var s = new Shape(new Vec2(0, window.innerHeight * 0.1), new Vec2(40, 40), "CIRCLE", getRandomColor(), 0, new Vec2(0, 100));
+  var s = Ball.instantiate(v2(0, groundLevel * 0.1), v2(60, 60));
   s.vel.x = 1000;
-  s.gravity.y = 80;
-  shapes.push(s);
+  s.mass = 1000000;
+  s.gravity = v2(0, 100);
 }
 
 function weirdWorld(am = 400) {
   colGrid.init(200, false);
+  setMapSize();
   numOfConstraintsRuns = 1;
   SelfCollisionsInterval = 0;
   showAnchors = false;
-  gravity = new Vec2(0, 0);
+  gravity = v2(0, 0);
   var limit = 100;
   for (let i = 0; i < am; i++) {
-    var p = new Vec2(r_range(limit, window.innerWidth - limit), r_range(limit, window.innerHeight - limit));
+    var p = v2(r_range(limit, mapSize.x - limit), r_range(limit, groundLevel - limit));
     var r = new Rope(p, p, getRandomColor(), 1, 60, 3);
     r.segments[r.segments.length - 1].setAnchor(null);
     ropes.push(r);
   }
   for (let i = 0; i < 4; i++) {
-    var s = Shape.instantiate("CIRCLE", rand_v2());
-    s.vel = rand_v2(new Vec2(-1000, 1000), new Vec2(-1000, 1000));
+    var s = Ball.instantiate(rand_v2());
+    s.vel = rand_v2(v2(-1000, 1000), v2(-1000, 1000));
     s.gravity.x = s.gravity.y = 0;
     s.bounceFactor = 1;
     s.dragFactor = 1;
   }
-  //   Shape.setGlobalGravity(new Vec2(0, 100));
-  var p = new Vec2(window.innerWidth / 2, window.innerHeight / 2);
+  //   Shape.setGlobalGravity(v2(0, 100));
+  var p = v2(mapSize.x / 2, groundLevel / 2);
   var airPusher = AirPusher.instantiate(p, 0);
   player = airPusher;
 }
 
 function hairWorld(am = 500) {
-  gravity = new Vec2(-5, 0);
+  gravity = v2(-50, 0);
   var limit = 100;
   for (let i = 0; i < am; i++) {
-    var p = new Vec2(r_range(limit, window.innerWidth - limit), r_range(limit, window.innerHeight - limit));
-    var r = new Rope(p, p, getRandomColor(), 1, 60, 3);
+    var p = v2(r_range(limit, mapSize.x - limit), r_range(limit, groundLevel - limit));
+    var r = new Rope(p, p, getRandomColor(), 1, 120, 1);
     r.segments[r.segments.length - 1].setAnchor(null);
     ropes.push(r);
   }
   Rope.globalModifier(1, 30, 20);
   shakeAll(5);
   SelfCollisionsInterval = 0;
-  //   Shape.setGlobalGravity(new Vec2(0, 100));
-  var p = new Vec2(window.innerWidth / 2, window.innerHeight * 0.9);
+  var p = v2(mapSize.x / 2, groundLevel * 0.9);
   var airPusher = AirPusher.instantiate(p, -Math.PI / 2);
   airPusher.baseForce = 40;
-  numOfConstraintsRuns = 10;
+  numOfConstraintsRuns = 5;
   showAnchors = false;
-  Shape.instantiate();
-  player = airPusher;
+  Ball.instantiate();
+  airPusher.control();
 }
 
 function animatedWorld() {
-  gravity = new Vec2(0, 100);
-  var am = 20;
+  gravity = v2(0, 100);
+  numOfConstraintsRuns = 2;
+  SelfCollisionsInterval = 0;
+  setMapSize();
+
+  var am = 100;
   var dur = 100;
   for (let i = 0; i < am; i++) {
     setTimeout(() => {
       if (input.lastKey === "r") return;
       var segSpace = Math.max((am - i) / 3, 0.1);
-      segSpace = r_range(2, 4);
-      var segAmount = 50;
-      ropes.push(new Rope(new Vec2(40 + (window.innerWidth / am) * i, 20), null, getRandomColor(), r_range_int(10, 30), segAmount, segSpace));
+      segSpace = r_range(0.2, 0.4);
+      var segAmount = r_range_int(20, 30);
+      ropes.push(new Rope(v2(40 + (mapSize.x / am) * i, 20), null, getRandomColor(), r_range_int(1, 4), segAmount, segSpace));
     }, i * dur);
   }
   setTimeout(() => {
     if (input.lastKey === "r") return;
-    var circle = new Shape(new Vec2(window.innerWidth - 100, window.innerHeight * 0.9), new Vec2(40, 40), "CIRCLE");
+    var circle = new Ball(v2(mapSize.x - 100, groundLevel * 0.9), v2(80, 80));
     circle.vel.x = -1500;
     circle.vel.y = -1500;
+    circle.bounceFactor = 1;
+    circle.drag = 0.1;
     shapes.push(circle);
-  }, am * 1.5 * dur);
+  }, am * 1 * dur);
 }
 
 function borderGrass() {
   colGrid.init(1, false);
-  gravity = new Vec2(0, 0);
+  gravity = v2(0, 0);
   SelfCollisionsInterval = 0;
   showAnchors = false;
   let am = 10;
@@ -114,54 +130,78 @@ function borderGrass() {
   for (const d of dirs) {
     for (let i = 0; i < am; i++) {
       var p;
-      var grav = new Vec2(gravity.x, gravity.y);
+      var grav = v2(gravity.x, gravity.y);
       grav.y = d === "down" ? -gravAm : d === "up" ? gravAm : 0;
       grav.x = d === "right" ? -gravAm : d === "left" ? gravAm : 0;
 
-      if (d === "down") p = new Vec2((window.innerWidth / am) * i, window.innerHeight - pad);
-      else if (d === "left") p = new Vec2(pad, (window.innerHeight / am) * i);
-      else if (d === "right") p = new Vec2(window.innerWidth - pad, (window.innerHeight / am) * i);
-      else if (d === "up") p = new Vec2((window.innerWidth / am) * i, pad);
+      if (d === "down") p = v2((mapSize.x / am) * i, groundLevel - pad);
+      else if (d === "left") p = v2(pad, (groundLevel / am) * i);
+      else if (d === "right") p = v2(mapSize.x - pad, (groundLevel / am) * i);
+      else if (d === "up") p = v2((mapSize.x / am) * i, pad);
       var r = new Rope(p, p, getRandomColor(), 2, d === "down" || d === "up" ? 50 : 70, 10);
       r.gravity = grav;
       r.segments[r.segments.length - 1].setAnchor(null);
       ropes.push(r);
-      var s = Shape.instantiate("CIRCLE", p, new Vec2(5, 5));
+      var s = Ball.instantiate(p, v2(5, 5));
       s.gravity = grav;
       r.segments[r.segments.length - 1].attachToShape(s);
     }
   }
-  var p = new Vec2(window.innerWidth / 2, window.innerHeight / 2);
+  var p = v2(mapSize.x / 2, groundLevel / 2);
   var airPusher = AirPusher.instantiate(p, 0);
   player = airPusher;
   Shape.removeAll();
 }
 
+function hangingSnakes() {
+  var am = r_range_int(5, 20);
+  colGrid.init(200, false);
+  SelfCollisionsInterval = 5;
+  gravity = v2(0, 100);
+  for (let i = 0; i < am; i++) {
+    var p = v2(mapSize.x * (i / am), 100);
+    var segAmount = r_range_int(20, 100);
+    var thick = r_range_int(2, 30);
+    var segSpace = r_range_int(2, 5);
+    var r = new Snake(p, null, getRandomColor(), thick, segAmount, segSpace);
+    r.segments[0].setAnchor();
+    entities.push(r);
+  }
+}
 
 function setPreset(preset) {
-  contextMenu.hide();
+  snakeBasketball.active = false;
+  cam.setTarget(null);
   clearAll();
   preset();
 }
 
-function setWeb(pos, size, amountX, amountY, color = "white") {
-  var spacingX = size.x / amountX;
-  var spacingY = size.y / amountY;
+function platformGame() {
+  colGrid.init(200, false);
+  var snake = new Snake(v2(200, groundLevel - 20), v2(50, groundLevel - 20));
+  snake.segments[snake.segments.length - 1].setAnchor(null);
+  entities.push(snake);
+  snake.control();
+  setMapSize(v2(20000, 5000));
+  snake.setPointy(-0.2);
+  minimap.hide();
+  showHovMenu = false;
 
-  for (let x = 0; x < amountX; x++) {
-    var p = new Vec2(pos.x + x * spacingX, pos.y);
-    var r = new Rope(p, new Vec2(p.x, pos.y + size.y), color, 2, amountX, 5);
-    r.color2 = color;
-    for (let i = 0; i < r.segments.length; i++) if (i % 4 === 0) r.segments[i].setAnchor();
+  var x = 2000;
+  var w = 200;
 
-    ropes.push(r);
-  }
-  for (let y = 0; y < amountY; y++) {
-    var p = new Vec2(pos.x, pos.y + y * spacingY);
-    var r = new Rope(p, null, color, 2, amountY, spacingY);
-    r.segments[r.segments.length - 1].setAnchor();
-    r.color2 = color;
-    for (let i = 0; i < r.segments.length; i++) if (i % 4 === 0) r.segments[i].setAnchor();
-    ropes.push(r);
-  }
+  var rect = Rectangle.instantiate(v2(x, groundLevel - 100), v2(w, 100));
+  rect.rotationEnabled = false;
+  var rect = Rectangle.instantiate(v2(x + w * 1.5, groundLevel - 200), v2(w, 200));
+  rect.rotationEnabled = false;
+
+  var snake = Snake.instantiate(v2(x + w * 4, groundLevel - 20));
+  snake.setPointy(-0.3);
+
+  var x = 4000;
+
+  Ball.instantiate(v2(x, groundLevel - 200), v2(50, 50));
+
+  var rect = Rectangle.instantiate(v2(x + 500, groundLevel - 500), v2(50, 500));
+  rect.rotationEnabled = false;
 }

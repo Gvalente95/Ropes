@@ -49,6 +49,10 @@ function addColor(originalColor, newColor, amount = 1) {
   const r = Math.round(Math.max(0, Math.min(255, a[0] * (1 - amount) + b[0] * amount)));
   const g = Math.round(Math.max(0, Math.min(255, a[1] * (1 - amount) + b[1] * amount)));
   const bl = Math.round(Math.max(0, Math.min(255, a[2] * (1 - amount) + b[2] * amount)));
+  var alphaOriginal = getAlpha(originalColor);
+  var alphaNew = getAlpha(originalColor);
+  var minAlpha = Math.min(alphaOriginal, alphaNew);
+  if (minAlpha != 1) return `rgba(${r}, ${g}, ${bl}, ${minAlpha})`;
   return `rgb(${r}, ${g}, ${bl})`;
 }
 
@@ -136,4 +140,22 @@ function setBrightness(color, minLuminance = 150) {
   }
   if (returnAsString) return `rgb(${r}, ${g}, ${b})`;
   return [r, g, b];
+}
+
+function getAlpha(color) {
+  if (typeof color !== "string") {
+    console.warn("Error: getAlpha received " + color + " not a string");
+    return;
+  }
+  if (!color.includes("rgba")) return 255;
+
+  var idx = color.length - 1;
+  while (color[idx] != ",") idx--;
+  var splitted = color.slice(++idx, color.length - 1);
+  return splitted;
+}
+
+function rgbaToRgb(rgba) {
+  var rgb = getRGB(rgba);
+  return `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
 }

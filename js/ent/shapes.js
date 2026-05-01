@@ -1,31 +1,32 @@
 class Shape {
   constructor(pos, size, type = "SQUARE", color = getRandomColor(), angle = 0, _gravity = gravity) {
-    this.gravity = _gravity;
     this.pos = pos;
-    this.newPos;
-    this.attachedSegments = [];
+    this.newPos = pos;
     this.size = size;
     this.type = type;
     this.color = color;
+    this.fillColor = color;
+    this.borderColor = setAlpha(color, 0);
     this.angle = angle;
-    this.collisionsEnabled = true;
     this.angVel = 0;
+    this.gravity = _gravity;
+    this.bounceFactor = 0.8;
+    this.dragFactor = 0.99;
+    this.vel = v2(0, 0);
+    this.attachedSegments = [];
+    this.frameCollisionsAmount = 0;
+    this.collisionsEnabled = true;
+    this.rotationEnabled = true;
     this.movable = true;
     this.static = false;
-    this.frameCollisionsAmount = 0;
-    this.center = new Vec2(0, 0);
-    this.vel = new Vec2(0, 0);
-    this.bounceFactor = type === "CIRCLE" ? 0.8 : 0.5;
-    this.dragFactor = type === "CIRCLE" ? 0.99 : 0.5;
+    this.center = v2(0, 0);
+    this.jumpForce = 1000;
     this.updateMass();
+    this.inScreen = false;
   }
 
   remove() {
     Shape.remove(this);
-  }
-  duplicate() {
-    var newShape = new Shape(new Vec2(this.pos.x + 5, this.pos.y + 5), new Vec2(this.size.x, this.size.y), this.type, this.color, this.angle, new Vec2(this.gravity.x, this.gravity.y));
-    shapes.push(newShape);
   }
 
   place(pos) {
@@ -33,14 +34,15 @@ class Shape {
   }
 
   rotate(deltaAngle) {
+    if (!this.rotationEnabled) return;
+    this.angVel = deltaAngle;
     this.angle += deltaAngle;
     while (this.angle <= -Math.PI) this.angle += Math.PI * 2;
     while (this.angle > Math.PI) this.angle -= Math.PI * 2;
   }
 
   resize(newSize) {
-    if (typeof newSize === Vec2) this.size = new Vec2(newSize);
-    else this.size = new Vec2(newSize, newSize);
+    this.size = v2(Math.max(10, newSize.x), Math.max(newSize.y, 10));
     this.updateMass();
   }
 
@@ -95,6 +97,16 @@ class Shape {
   }
 
   resolveBoxCollision(boxB) {
+    if (rectInRect(this.newPos, this.size, this.angle, boxB.pos, boxB.size, boxB.angle)) {
+      var bounceXFactor = 0.5;
+      boxB.vel = add_v2(boxB.vel, scale_v2(this.vel, 2));
+
+      this.vel.x *= -bounceXFactor;
+      this.vel.y *= -this.bounceFactor;
+      var push = v2(Math.sign(this.vel.x) * 0.1, Math.sign(this.vel.y) * 0.1);
+      this.newPos = add_v2(this.pos, push);
+    }
+    return;
     let newP = this.newPos;
     let boxA = this;
     const aRight = newP.x + boxA.size.x;
@@ -174,12 +186,17 @@ class Shape {
     var box = a.type === "SQUARE" ? a : b.type === "SQUARE" ? b : null;
     if (!circle || !box) return false;
 
-    // Find closest point on box to circle center
-    const boxLeft = box.pos.x;
-    const boxRight = box.pos.x + box.size.x;
-    const boxTop = box.pos.y;
-    const boxBottom = box.pos.y + box.size.y;
+    // For rope segments (circles with small mass), use AABB collision with box
+    // Get box corners with rotation
+    const boxCorners = [rotate_v2(v2(box.pos.x, box.pos.y), box.center, box.angle), rotate_v2(v2(box.pos.x + box.size.x, box.pos.y), box.center, box.angle), rotate_v2(v2(box.pos.x, box.pos.y + box.size.y), box.center, box.angle), rotate_v2(v2(box.pos.x + box.size.x, box.pos.y + box.size.y), box.center, box.angle)];
 
+    // Find AABB bounds of rotated box
+    const boxLeft = Math.min(...boxCorners.map((c) => c.x));
+    const boxRight = Math.max(...boxCorners.map((c) => c.x));
+    const boxTop = Math.min(...boxCorners.map((c) => c.y));
+    const boxBottom = Math.max(...boxCorners.map((c) => c.y));
+
+    // Find closest point on rotated box to circle
     const closestX = Math.max(boxLeft, Math.min(circle.pos.x, boxRight));
     const closestY = Math.max(boxTop, Math.min(circle.pos.y, boxBottom));
 
@@ -197,32 +214,33 @@ class Shape {
     const overlap = radius - dist;
 
     // Normalize separation vector
-    const nx = dx / dist;
-    const ny = dy / dist;
+    const nx = dist > 0 ? dx / dist : 0;
+    const ny = dist > 0 ? dy / dist : 0;
 
     const totalMass = circle.mass + box.mass;
     const pushRatioCircle = box.mass / totalMass;
     const pushRatioBox = circle.mass / totalMass;
 
-    // Separate circle and box (check borders)
-    const pushDirX = nx > 0 ? "right" : "left";
-    const pushDirY = ny > 0 ? "down" : "up";
+    // Push bodies apart
     if (circle === a) {
+      // Ball is self (a), box is b
       newP.x += nx * overlap * pushRatioCircle;
       newP.y += ny * overlap * pushRatioCircle;
-      if (box.movable && !box.isAtBorder(box.pos, pushDirX)) box.pos.x -= nx * overlap * pushRatioBox;
-      if (box.movable && !box.isAtBorder(box.pos, pushDirY)) box.pos.y -= ny * overlap * pushRatioBox;
+      if (box.movable) {
+        box.pos.x -= nx * overlap * pushRatioBox;
+        box.pos.y -= ny * overlap * pushRatioBox;
+      }
     } else {
+      // Box is self (a), circle is b
       if (circle.movable) {
         circle.pos.x += nx * overlap * pushRatioCircle;
         circle.pos.y += ny * overlap * pushRatioCircle;
       }
-
       newP.x -= nx * overlap * pushRatioBox;
       newP.y -= ny * overlap * pushRatioBox;
     }
 
-    // Apply elastic collision along normal
+    // Apply elastic collision response
     const relVelX = circle.vel.x - box.vel.x;
     const relVelY = circle.vel.y - box.vel.y;
     const velAlongNormal = relVelX * nx + relVelY * ny;
@@ -231,40 +249,32 @@ class Shape {
       // Moving towards each other
       const m1 = circle.mass;
       const m2 = box.mass;
-      const impulse = (2 * velAlongNormal) / (m1 + m2);
+      const restitution = 0.6;
+      const impulse = (-(1 + restitution) * velAlongNormal) / (m1 + m2);
 
-      circle.vel.x -= impulse * m2 * nx;
-      circle.vel.y -= impulse * m2 * ny;
-      box.vel.x += impulse * m1 * nx;
-      box.vel.y += impulse * m1 * ny;
+      circle.vel.x += impulse * m2 * nx;
+      circle.vel.y += impulse * m2 * ny;
+      box.vel.x -= impulse * m1 * nx;
+      box.vel.y -= impulse * m1 * ny;
     }
+
     this.newPos = newP;
     return true;
   }
 
   handleCollisions() {
-    var cs = colGrid.getAroundPos(this.center.x, this.center.y, 1);
-    var colAmount = 0;
+    var cs = colGrid.getAtPos(this.center.x, this.center.y, 1);
     for (const s of cs) {
       if (s === this) continue;
-
+      if (!s.collisionsEnabled) continue;
       var collided;
-      if (s.rope) {
-        continue;
-        var thick = s.rope.thick;
-        var c = new Shape(s.pos, new Vec2(thick / 2, thick / 2), "CIRCLE");
-        c.mass = thick * 0.1;
-        collided = this.resolveCircleCollision(c);
-      } else if (this.type === "CIRCLE" && s.type === "CIRCLE") {
-        collided = this.resolveCircleCollision(s);
-      } else if (this.type === "SQUARE" && s.type === "SQUARE") collided = this.resolveBoxCollision(s);
+      if (s.rope) continue;
+      if (this.type === "CIRCLE" && s.type === "CIRCLE") collided = this.resolveCircleCollision(s);
+      else if (this.type === "SQUARE" && s.type === "SQUARE") collided = this.resolveBoxCollision(s);
       else collided = this.resolveCircleBoxCollision(s);
-      colAmount += collided;
+      this.frameCollisionsAmount += collided;
     }
-    this.frameCollisionsAmount += colAmount;
   }
-
-  getRotatedCorners() {}
 
   updateBorderCollisions() {
     var pos = this.newPos;
@@ -273,10 +283,10 @@ class Shape {
 
     if (this.type === "CIRCLE") {
       var minX = this.size.x;
-      var maxX = window.innerWidth - this.size.x;
+      var maxX = mapSize.x - this.size.x;
 
       var minY = this.size.x;
-      var maxY = window.innerHeight - this.size.x;
+      var maxY = groundLevel - this.size.x;
 
       if (pos.x < minX) {
         if (this.vel.x < 0) this.vel.x *= -bounceMult;
@@ -298,35 +308,42 @@ class Shape {
         this.frameCollisionsAmount++;
         this.vel.x *= this.dragFactor;
       }
-    } else {
-      const corners = [new Vec2(pos.x, pos.y), new Vec2(pos.x + size.x, pos.y), new Vec2(pos.x, pos.y + size.y), new Vec2(pos.x + size.x, pos.y + size.y)];
+    } else if (this.type === "SQUARE") {
+      const corners = [v2(pos.x, pos.y), v2(pos.x + size.x, pos.y), v2(pos.x, pos.y + size.y), v2(pos.x + size.x, pos.y + size.y)];
       const rotatedCorners = corners.map((c) => rotate_v2(c, this.center, this.angle));
       const maxX = Math.max(...rotatedCorners.map((c) => c.x));
       const minX = Math.min(...rotatedCorners.map((c) => c.x));
       const maxY = Math.max(...rotatedCorners.map((c) => c.y));
       const minY = Math.min(...rotatedCorners.map((c) => c.y));
-      if (minX < 0) {
-        pos.x += Math.abs(minX) + 2;
-      } else if (maxX > window.innerWidth) {
-        pos.x -= maxX - window.innerWidth + 2;
+
+      var borderMinX = 0;
+      var borderMaxX = mapSize.x - this.size.x;
+
+      var borderMinY = 0;
+      var borderMaxY = groundLevel;
+
+      if (minX < borderMinX) {
+        pos.x += Math.abs(minX);
+      } else if (maxX > borderMaxX) {
+        pos.x -= maxX - borderMaxX;
       }
-      if (minY < 0) {
-        pos.y += Math.abs(minY) + 2;
-      } else if (maxY > window.innerHeight) {
-        pos.y -= maxY - window.innerHeight + 2;
+      if (minY < borderMinY) {
+        pos.y += Math.abs(minY);
+      } else if (maxY > borderMaxY) {
+        pos.y -= maxY - borderMaxY;
       }
 
-      const finalCenter = new Vec2(pos.x + size.x / 2, pos.y + size.y / 2);
+      const finalCenter = v2(pos.x + size.x / 2, pos.y + size.y / 2);
       const finalCorners = corners.map((c) => rotate_v2(c, finalCenter, this.angle));
       const finalMaxX = Math.max(...finalCorners.map((c) => c.x));
       const finalMinX = Math.min(...finalCorners.map((c) => c.x));
       const finalMaxY = Math.max(...finalCorners.map((c) => c.y));
       const finalMinY = Math.min(...finalCorners.map((c) => c.y));
 
-      const touchingLeft = finalMinX < 0;
-      const touchingRight = finalMaxX > window.innerWidth;
-      const touchingTop = finalMinY < 0;
-      const touchingBottom = finalMaxY > window.innerHeight;
+      const touchingLeft = finalMinX < borderMinY;
+      const touchingRight = finalMaxX > borderMaxX;
+      const touchingTop = finalMinY < borderMinY;
+      const touchingBottom = finalMaxY > borderMaxY;
 
       if ((touchingLeft && this.vel.x < 0) || (touchingRight && this.vel.x > 0)) {
         if (Math.sign(this.vel.x) < 0.1) this.grounded = true;
@@ -335,7 +352,7 @@ class Shape {
         this.vel = scale_v2(this.vel, this.dragFactor);
       }
       if ((touchingTop && this.vel.y < 0) || (touchingBottom && this.vel.y > 0)) {
-        if (Math.sign(this.vel.y) <= this.gravity.y) {
+        if (Math.sign(this.vel.y) <= 0.1) {
           this.grounded = true;
           this.vel.y = 0;
           this.frameCollisionsAmount++;
@@ -345,17 +362,42 @@ class Shape {
     }
   }
 
-  isAtBorder(pos, direction) {
-    const minX = this.type === "CIRCLE" ? this.size.x : 0;
-    const maxX = window.innerWidth - (this.type === "CIRCLE" ? this.size.x : this.size.x);
-    const minY = this.type === "CIRCLE" ? this.size.x : 0;
-    const maxY = window.innerHeight - (this.type === "CIRCLE" ? this.size.x : this.size.y);
+  isAtBorder(pos, direction = null) {
+    if (this.type === "CIRCLE") {
+      const minX = this.size.x;
+      const maxX = mapSize.x - this.size.x;
+      const minY = this.size.x;
+      const maxY = mapSize.y - this.size.x;
+      if (direction === "left") return pos.x <= minX;
+      if (direction === "right") return pos.x >= maxX;
+      if (direction === "up") return pos.y <= minY;
+      if (direction === "down") return pos.y >= maxY;
+      return pos.x <= minX || pos.x >= maxX || pos.y <= minY || pos.y >= maxY;
+    }
+    if (this.type === "SQUARE") {
+      const corners = [v2(pos.x, pos.y), v2(pos.x + this.size.x, pos.y), v2(pos.x, pos.y + this.size.y), v2(pos.x + this.size.x, pos.y + this.size.y)];
+      const rotatedCorners = corners.map((c) => rotate_v2(c, this.center, this.angle));
+      const maxX = Math.max(...rotatedCorners.map((c) => c.x));
+      const minX = Math.min(...rotatedCorners.map((c) => c.x));
+      const maxY = Math.max(...rotatedCorners.map((c) => c.y));
+      const minY = Math.min(...rotatedCorners.map((c) => c.y));
+      return minX < 0 || maxX > mapSize.x || minY < 0 || maxY > mapSize.y;
+    }
+  }
 
-    if (direction === "left") return pos.x <= minX;
-    if (direction === "right") return pos.x >= maxX;
-    if (direction === "up") return pos.y <= minY;
-    if (direction === "down") return pos.y >= maxY;
-    return false;
+  control() {
+    if (!player) {
+      player = this;
+      this.rotationEnabled = true;
+      cam.setTarget(this);
+    } else if (player === this) player = null;
+    else this.control2();
+  }
+  control2() {
+    if (!player2) {
+      this.rotationEnabled = true;
+      player2 = this;
+    } else if (player2 === this) player2 = null;
   }
 
   updateMass() {
@@ -368,12 +410,13 @@ class Shape {
       return;
     }
 
-    // If grounded and velocities are near zero, suppress gravity entirely
-    this.vel.x += this.gravity.x * dt * 10;
-    this.vel.y += this.gravity.y * dt * 10;
+    if (!this.grounded) {
+      this.vel.x += this.gravity.x * dt * 10;
+      this.vel.y += this.gravity.y * dt * 10;
+    }
 
     for (const a of airPushers) {
-      var oldPos = new Vec2(this.pos.x, this.pos.y);
+      var oldPos = v2(this.pos.x, this.pos.y);
       var pushedPos = a.getWindForceAtPos(oldPos, this.mass / 100);
       var windPush = sub_v2(pushedPos, oldPos);
       this.vel.x += windPush.x / dt;
@@ -383,17 +426,31 @@ class Shape {
   }
 
   updateAngle() {
+    if (!this.rotationEnabled) return;
     if (this.type === "CIRCLE") {
       this.rotate((this.vel.x * dt) / this.size.x);
     } else {
-    }
-  }
-
-  updateSelected() {
-    if (mouse.pressed) this.newPos = new Vec2(mouse.pos.x - this.size.x / 2, mouse.pos.y - this.size.y / 2);
-    else {
-      this.vel = new Vec2(-mouse.delta.x * 40, -mouse.delta.y * 40);
-      selShape = null;
+      var atBorder = this.isAtBorder(this.newPos);
+      if (atBorder) {
+        var stableAngles = [0, Math.PI / 2, Math.PI, -Math.PI / 2, -Math.PI];
+        var closest = 100;
+        for (let i = 0; i < stableAngles.length; i++) {
+          let stableAngle = stableAngles[i];
+          var diff = Math.abs(this.angle - stableAngle);
+          if (diff <= 0.05) {
+            var newAngle = stableAngle;
+            // if (Math.sign(newAngle) != this.angle) newAngle *= -1;
+            this.angle = newAngle;
+            return;
+          }
+          if (diff < closest) closest = diff;
+        }
+        this.rotate(this.angVel + this.angVel > 0 ? 0.05 : -0.05);
+      } else {
+        // var curDelta = (this.vel.x * dt) / this.size.x;
+        // var newDelta = Math.abs(curDelta) > Math.abs(this.angVel) ? 1 : -1;
+        this.rotate((this.vel.x * dt) / this.size.x);
+      }
     }
   }
 
@@ -407,76 +464,41 @@ class Shape {
     }
   }
 
-  updateHover() {
-    if (this.type === "SQUARE" && pointInRect(mouse.pos, this.pos, this.size)) hovShape = this;
-    else if (this.type === "CIRCLE" && pointInCircle(mouse.pos, new Vec2(this.pos.x, this.pos.y), this.size.x)) hovShape = this;
-  }
-
   update() {
+    var isPlr = player === this || player2 === this;
+    if (isPlr) {
+      var inp = player === this ? input.wasd : input.arrows;
+      this.vel.x += inp.x * 20;
+      if (Math.abs(this.gravity.y) < 1) this.vel.y += inp.y * 20;
+    }
     this.frameCollisionsAmount = 0;
     this.grounded = false;
-    this.newPos = new Vec2(this.pos.x, this.pos.y);
-    if (selShape === this) this.updateSelected();
-    else {
+    this.newPos = v2(this.pos.x, this.pos.y);
+    if (selShape !== this && !paused) {
       this.updateVelocity();
       this.updateAngle();
     }
     this.updateBorderCollisions();
     if (this.collisionsEnabled) this.handleCollisions();
-    if (this.movable || this === selShape) this.pos = this.newPos;
-    if (!hovShape && !selShape) this.updateHover();
+
+    if (isPlr && input.keyClicked === " " && (this.grounded || this.frameCollisionsAmount)) this.vel.y -= this.jumpForce;
+
+    if (!this.static || this === selShape) this.pos = this.newPos;
     this.updateCenter();
+    this.inScreen = CircleInScreen(this);
   }
 
   render(_ctx = ctx) {
-    var isSel = contextMenu.shape === this || hovShape === this || selShape === this;
-    var curClr = isSel ? this.color : addColor(this.color, "black", 0.3);
-    switch (this.type) {
-      case "SQUARE":
-        _ctx.save();
-        const centerX = this.pos.x + this.size.x / 2;
-        const centerY = this.pos.y + this.size.y / 2;
-        _ctx.translate(centerX, centerY);
-        _ctx.rotate(this.angle);
-        drawRect(-this.size.x / 2, -this.size.y / 2, this.size.x, this.size.y, curClr, null, _ctx);
-        _ctx.restore();
-        break;
-      case "CIRCLE":
-        drawCircle2(_ctx, [this.pos.x, this.pos.y], this.size.x, curClr, isSel ? "white" : "rgba(0, 0, 0, 0)", 2);
-        var color = addColor(curClr, "black", 0.4);
-        for (let i = 0; i < 2; i++) {
-          const angle = this.angle + (i * Math.PI) / 2;
-          const dir = new Vec2(Math.cos(angle), Math.sin(angle));
-          const start = add_v2(this.pos, scale_v2(dir, this.size.x));
-          const end = add_v2(this.pos, scale_v2(dir, -this.size.x));
-          drawLine(_ctx, [start.x, start.y], [end.x, end.y], color, 4);
-        }
-        drawCircle2(_ctx, [this.pos.x, this.pos.y], this.size.x * 0.25, color, isSel ? "white" : "rgba(0,0,0,0)", 1);
-        break;
-      case "TRIANGLE":
-        _ctx.save();
-        _ctx.translate(this.pos.x + this.size.x / 2, this.pos.y + this.size.y / 2);
-        _ctx.rotate(this.angle);
-        const h = (this.size.y * Math.sqrt(3)) / 2;
-        const p0 = [0, (-2 * h) / 3];
-        const p1 = [-this.size.x / 2, h / 3];
-        const p2 = [this.size.x / 2, h / 3];
-        drawTriangle(_ctx, p0, p1, p2, curClr, 2);
-        _ctx.restore();
-        break;
-    }
+    if (this.frameCollisionsAmount && showColAmount) drawText(ctx, p.x, p.y - 200, this.frameCollisionsAmount);
   }
+
   static resize(g_size) {
-    for (const s of shapes) {
-      var newSize = new Vec2(g_size.x || s.size.x, g_size.y || s.size.y);
-      s.resize(newSize);
-    }
-    ShapeScale = g_size.x;
+    for (var s of shapes) s.resize(g_size);
+    shapeSize = v2(g_size.x, g_size.y);
   }
   static removeAll() {
     for (const s of shapes) s.remove();
   }
-
   static remove(shape) {
     var idx = shapes.indexOf(shape);
     if (idx === -1) return;
@@ -487,14 +509,152 @@ class Shape {
     if (selShape === shape) selShape = null;
     shapes.splice(idx, 1);
   }
-
   static setGlobalGravity(newGravity) {
     for (const s of shapes) s.gravity = newGravity;
   }
-
-  static instantiate(type = "CIRCLE", pos = mouse.pos, size = new Vec2(r_range(20, 80), r_range(20, 80))) {
-    var shape = new Shape(new Vec2(pos.x, pos.y), new Vec2(size.x, size.y), type);
+  static instantiate(constructor = Ball, pos = mouse.world, size = v2(r_range(20, 80), r_range(20, 80))) {
+    var shape = new constructor(v2(pos.x, pos.y), v2(size.x, size.y), type);
     shapes.push(shape);
     return shape;
+  }
+}
+
+class Ball extends Shape {
+  constructor(pos, size, color = getRandomColor()) {
+    super(pos, size, "CIRCLE", color);
+    this.bounceFactor = 0.8;
+    this.dragFactor = 0.99;
+  }
+
+  duplicate() {
+    var ball = new Ball(v2(this.pos.x + 5, this.pos.y + 5), v2(this.size.x, this.size.y), this.color);
+    ball.movable = this.movable;
+    ball.static = this.static;
+    ball.angle = this.angle;
+    ball.gravity = v2(this.gravity.x, this.gravity.y);
+    ball.rotationEnabled = this.rotationEnabled;
+    ball.angVel = this.angVel;
+    ball.bounceFactor = this.bounceFactor;
+    ball.dragFactor = this.dragFactor;
+    shapes.push(ball);
+  }
+
+  updateHover() {
+    if (pointInCircle(mouse.pos, v2(this.pos.x, this.pos.y), this.size.x)) hovShape = this;
+  }
+
+  render(_ctx = ctx) {
+    var isSel = contextMenu.shape === this || hovShape === this || selShape === this;
+    var curClr = isSel ? this.fillColor : addColor(this.fillColor, "black", 0.3);
+    var p = toScrn(this.pos.x, this.pos.y);
+    drawCircle2(_ctx, p.x, p.y, this.size.x, curClr, this.borderColor, 2);
+    var color = addColor(curClr, "black", 0.4);
+    for (let i = 0; i < 2; i++) {
+      const angle = this.angle + (i * Math.PI) / 2;
+      const dir = v2(Math.cos(angle), Math.sin(angle));
+      const start = add_v2(p, scale_v2(dir, this.size.x));
+      const end = add_v2(p, scale_v2(dir, -this.size.x));
+      drawLine(_ctx, [start.x, start.y], [end.x, end.y], color, 4);
+    }
+    drawCross(_ctx, v2(p.x - this.size.x, p.y - this.size.x), v2(this.size.x * 2, this.size.x * 2), this.angle, 0.1, color, addColor(color, "white", 0.2));
+    super.render();
+  }
+
+  static instantiate(pos = mouse.world, size = v2(r_range(20, 80), r_range(20, 80))) {
+    var ball = new Ball(v2(pos.x, pos.y), v2(size.x, size.y));
+    shapes.push(ball);
+    return ball;
+  }
+}
+
+class Rectangle extends Shape {
+  constructor(pos, size, color = getRandomColor(), allowRotation = false) {
+    super(pos, size, "SQUARE", color);
+    this.allowRotation = allowRotation;
+    this.bounceFactor = 0.5;
+    this.dragFactor = 0.8;
+    this.setBrokenGeometry(10);
+  }
+
+  duplicate() {
+    var rect = new Rectangle(v2(this.pos.x + 5, this.pos.y + 5), v2(this.size.x, this.size.y), this.color);
+    rect.movable = this.movable;
+    rect.static = this.static;
+    rect.angle = this.angle;
+    rect.gravity = v2(this.gravity.x, this.gravity.y);
+    rect.rotationEnabled = this.rotationEnabled;
+    rect.angVel = this.angVel;
+    rect.bounceFactor = this.bounceFactor;
+    rect.dragFactor = this.dragFactor;
+    shapes.push(rect);
+  }
+
+  setBrokenGeometry(amount) {
+    this.brkP = [];
+    this.brkP.push(v2(0, 0));
+    this.brkP.push(v2(1, 0));
+    this.brkP.push(v2(0, 1));
+    this.brkP.push(v2(1, 1));
+    for (let i = 0; i < amount; i++) this.brkP.push(v2(r_range(0, 1), r_range(0, 1)));
+  }
+
+  updateHover() {
+    if (pointInRect(mouse.pos, this.pos, this.size)) hovShape = this;
+  }
+
+  render(_ctx = ctx) {
+    var isSel = contextMenu.shape === this || hovShape === this || selShape === this;
+    var frameColor = isSel ? this.fillColor : addColor(this.fillColor, "black", 0.3);
+    var p = toScrn(this.pos.x, this.pos.y);
+    drawRect(p.x, p.y, this.size.x, this.size.y, frameColor, this.borderColor, _ctx, this.angle);
+  }
+
+  static instantiate(pos = mouse.world, size = v2(r_range(20, 80), r_range(20, 80))) {
+    var square = new Rectangle(v2(pos.x, pos.y), v2(size.x, size.y));
+    shapes.push(square);
+    return square;
+  }
+}
+
+class Mine extends Shape {
+  constructor(pos, size, sidesAmount = 16) {
+    super(pos, size, "CIRCLE", "grey", 0);
+    this.rotationEnabled = true;
+    this.length = 4;
+    this.thick = 20;
+    this.animSpeed = 0.1;
+    this.sidesAmount = sidesAmount;
+    this.color1 = "white";
+    this.color2 = "rgba(199, 199, 199, 1)";
+  }
+
+  duplicate() {
+    var mine = new Mine(v2(this.pos.x + 5, this.pos.y + 5), v2(this.size.x, this.size.y), this.sidesAmount);
+    mine.movable = this.movable;
+    mine.static = this.static;
+    mine.color1 = this.color1;
+    mine.color2 = this.color2;
+    mine.angle = this.angle;
+    mine.gravity = v2(this.gravity.x, this.gravity.y);
+    mine.rotationEnabled = this.rotationEnabled;
+    mine.angVel = this.angVel;
+    mine.bounceFactor = this.bounceFactor;
+    mine.dragFactor = this.dragFactor;
+    shapes.push(mine);
+  }
+
+  render() {
+    var th = this.thick;
+    if (this.animSpeed) th = this.thick * Math.abs((((frame / 2) * this.animSpeed) % 5) - 2.5);
+    drawStar(ctx, v2(sx(this.pos.x), sy(this.pos.y)), this.sidesAmount, this.angle, this.length, th, this.color1, this.color2);
+  }
+  updateHover() {
+    if (pointInCircle(mouse.pos, v2(this.pos.x, this.pos.y), this.size.x)) hovShape = this;
+  }
+
+  static instantiate(pos = mouse.world, size = v2(r_range(20, 80), r_range(20, 80))) {
+    var mine = new Mine(v2(pos.x, pos.y), v2(size.x, size.y));
+    mine.push(mine);
+    return mine;
   }
 }

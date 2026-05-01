@@ -8,10 +8,10 @@ class RopeEntity extends Rope {
     this.steerSpeed = mult_v2(this.maxVel, this.steerFactor);
     this.steerChance = 100;
     this.groundFriction = 0.94;
-    this.jumpForce = 10;
+    this.jumpForce = 50;
     this.eyeColor = "white";
     this.pupilColor = "black";
-
+    this.jumping = false;
     this.alive = true;
     this.jumpChance = 0.005;
     this.grounded = false;
@@ -20,8 +20,11 @@ class RopeEntity extends Rope {
 
   jump(force = this.jumpForce) {
     if (this.vel.y <= 0) this.vel.y = 0;
-    this.vel.y -= this.maxVel.y * force * (this.gravity.y / 100);
-    setTimeout(() => (this.vel.y = 0), 200);
+    this.vel.y -= this.maxVel.y * force;
+    this.jumping = true;
+    setTimeout(() => (this.jumping = false), 10);
+
+    // setTimeout(() => (this.vel.y = 0), 200);
   }
 
   dash() {
@@ -38,9 +41,7 @@ class RopeEntity extends Rope {
     else if (r_range_int(0, 100) <= this.steerChance) this.vel.x = clamp(this.vel.x + (Math.random() * 2 - 1) * this.steerSpeed.x, -this.maxVel.x, this.maxVel.x);
 
     var lim = this.segAmount * 0.2 * this.segSpace;
-    if (!this.grounded) {
-      if (this.vel.y < 0) this.vel.y += this.gravity.y * 0.1;
-    } else if (headPos.y <= lim) this.vel.y += this.steerSpeed.y;
+    if (!this.grounded && headPos.y <= lim) this.vel.y += this.steerSpeed.y;
     else if (headPos.y >= window.innerHeight - lim) this.vel.y -= this.steerSpeed.y;
     else if (r_range_int(0, 100) <= this.steerChance) this.vel.y = clamp(this.vel.y + (Math.random() * 2 - 1) * this.steerSpeed.y, -this.maxVel.y, this.maxVel.y);
     if (this.grounded && r_range(0, 1) < this.jumpChance) this.jump();
@@ -106,7 +107,7 @@ class Snake extends RopeEntity {
       var p = a.pos;
       var closeSegments = colGrid.getAtPos(p.x, p.y);
       for (const b of closeSegments) {
-        if (!b.movable || !b.collisionsEnabled) continue;
+        if (!b.movable) continue;
         if (b.type === "CIRCLE" && circleOverlap(a.pos, a.thick, b.pos, b.size.x)) {
           this.frameCollisionsAmount++;
           if (1) {
@@ -160,15 +161,14 @@ class Snake extends RopeEntity {
       else this.jump();
       return headPos;
     }
-    if (!grounded) this.vel.y = 0;
-    else if (this.vel.y < -this.maxVel.y) this.vel.y += 0.01;
+    // if (!grounded) this.vel.y = 0;
+    // if (this.vel.y < -this.maxVel.y) this.vel.y += 0.01;
     var inputVec = movKeys;
     var max = mult_v2(this.maxVel, v2(2, 2));
     var steerSpeed = 1;
     if (!inputVec.x) this.vel.x *= 0.8;
     else this.vel.x = clamp(this.vel.x + inputVec.x * steerSpeed, -max.x, max.x);
-    if (inputVec.y && (grounded || noGrav)) this.vel.y = clamp(this.vel.y + inputVec.y * steerSpeed * (noGrav ? 10 : 1), -max.y, max.y);
-    this.vel.y *= 0.999;
+    if (inputVec.y && (grounded || noGrav)) this.vel.y = clamp(this.vel.y + inputVec.y * steerSpeed, -max.y, max.y);
     return add_v2(headPos, this.vel);
   }
 
@@ -180,8 +180,9 @@ class Snake extends RopeEntity {
   }
 
   update() {
-    if (paused && (!selSegment || selSegment.rope !== this)) return;
     var newP = this.getHeadMovement();
+    if (!this.grounded || this.jumping) this.vel.y += this.gravity.y * 0.1;
+    if (this.jumping && this.vel.y < 0) this.vel.y *= 0.8;
     if (this.collisionsEnabled) this.handleEntityCollisions();
     var head = this.segments[0];
     // newP.x = clamp(newP.x, head.thick / 2, window.innerWidth - head.thick / 2);
@@ -194,24 +195,14 @@ class Snake extends RopeEntity {
     super.render(_ctx);
 
     var lastSegP = this.segments[0].pos;
-    var w = Math.max(4, this.segments[0].thick / 4);
+    var w = Math.max(8, this.segments[0].thick / 4);
     var cVel = clamp_v2(this.vel, v2(3, 3));
-    var eye2P = toScrn(lastSegP.x - w / 2 + cVel.x * 1, lastSegP.y - w / 2 + cVel.y * 1);
+    var eye1P = toScrn(lastSegP.x - w / 2 + cVel.x, lastSegP.y - w / 2 + cVel.y);
+    var eye2P = toScrn(lastSegP.x - w / 2 + cVel.x * 0.7, lastSegP.y - w / 2 + cVel.y * 0.7);
 
-    const velAngle = Math.atan2(this.vel.y, this.vel.x);
-    const velMagnitude = Math.sqrt(this.vel.x * this.vel.x + this.vel.y * this.vel.y);
-    const maxVelMagnitude = Math.sqrt(this.maxVel.x * this.maxVel.x + this.maxVel.y * this.maxVel.y);
-    const normalizedVelMag = Math.min(1, velMagnitude / maxVelMagnitude);
-
-    const pupilRadius = w / 4;
-    const maxPupilDistance = w - pupilRadius - 1; // 1px padding from edge
-    const pupilDistance = maxPupilDistance * normalizedVelMag;
-
-    const pupilOffset = v2(Math.cos(velAngle) * pupilDistance, Math.sin(velAngle) * pupilDistance);
-    var pupPos = add_v2(eye2P, pupilOffset);
-
-    drawCircle2(_ctx, eye2P.x, eye2P.y, w, this.eyeColor, "rgba(0, 0, 0, 1)", 1);
-    drawCircle2(_ctx, pupPos.x, pupPos.y, pupilRadius, this.pupilColor, "rgba(0,0,0,0)", 0);
+    drawCircle2(_ctx, eye1P.x, eye1P.y, w, "white", this.pupilColor, 2);
+    drawCircle2(_ctx, eye2P.x, eye2P.y, w, this.eyeColor, "rgba(0, 0, 0, 1)", 2);
+    drawCircle2(_ctx, eye2P.x + cVel.x * 0.25 + w / 8, eye2P.y + cVel.y * 0.25 + w / 8, w / 4, this.pupilColor, "rgba(0,0,0,0)", 0);
   }
 
   static instantiate(pos, _thick = r_range(8, 30), _segAmount = r_range_int(40, 80), _segSpace = r_range_int(4, 10)) {

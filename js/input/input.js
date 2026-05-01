@@ -4,8 +4,8 @@ class Input {
     this.codeClicked = null;
     this.lastKey = null;
     this.keyClicked = null;
-    this.wasd = new Vec2(0, 0);
-    this.arrows = new Vec2(0, 0);
+    this.wasd = v2(0, 0);
+    this.arrows = v2(0, 0);
   }
 
   update() {
