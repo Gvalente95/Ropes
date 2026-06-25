@@ -1,29 +1,46 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
     <link rel="stylesheet" href="css/style.css" />
   </head>
 
   <body>
     <div id="ui-root"></div>
 
-    <script src="js/utils/snakeBasketball.js"></script>
     <script src="js/utils/inputField.js"></script>
     <script src="js/utils/buttons.js"></script>
     <script src="js/utils/inputField.js"></script>
-    <script src="js/utils/audio.js"></script>
     <script src="js/utils/color.js"></script>
-    <script src="js/utils/vec2.js"></script>
     <script src="js/utils/canvas.js"></script>
-    <script src="js/utils/camera.js"></script>
-    <script src="js/utils/minimap.js"></script>
+    <script src="js/utils/math.js"></script>
 
-    <script src="js/ent/rope.js"></script>
-    <script src="js/ent/ropeEntity.js"></script>
-    <script src="js/ent/shapes.js"></script>
-    <script src="js/ent/airPusher.js"></script>
+    <script src="js/models/entity/rope/rope.js"></script>
+    <script src="js/models/entity/rope/ropeEntity.js"></script>
+    <script src="js/models/entity/rope/lugworm.js"></script>
+    <script src="js/models/entity/rope/snake.js"></script>
+    <script src="js/models/entity/rope/robotArm.js"></script>
+
+    <script src="js/models/entity/shape/shape.js"></script>
+    <script src="js/models/entity/shape/ball.js"></script>
+    <script src="js/models/entity/shape/mine.js"></script>
+    <script src="js/models/entity/shape/polygon.js"></script>
+    <script src="js/models/entity/shape/rectangle.js"></script>
+
+    <script src="js/models/entity/airPusher.js"></script>
+
+    <script src="js/models/snakeBasketball.js"></script>
+    <script src="js/models/cinematic.js"></script>
+    <script src="js/models/audio.js"></script>
+    <script src="js/models/vec2.js"></script>
+    <script src="js/models/camera.js"></script>
+    <script src="js/models/minimap.js"></script>
+    <script src="js/models/collisionGrid.js"></script>
+    <script src="js/models/contextMenu.js"></script>
 
     <script src="js/input/input.js"></script>
     <script src="js/input/mouse.js"></script>
@@ -31,9 +48,6 @@
     <script src="js/loop/init.js"></script>
     <script src="js/loop/update.js"></script>
     <script src="js/loop/render.js"></script>
-
-    <script src="js/utils/collisionGrid.js"></script>
-    <script src="js/utils/contextMenu.js"></script>
 
     <script src="js/presets.js"></script>
     <script src="js/globals.js"></script>

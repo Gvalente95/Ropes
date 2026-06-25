@@ -94,8 +94,8 @@ class SnakeBasketball {
     entities.push(me);
     this.snakeA = me;
     this.snakeAStart = this.snakeA.segments[0].pos;
-    cam.setTarget(null);
-    cam.center(v2(0, winSize.y * .8));
+    cam.follow(null);
+    cam.center(v2(0, winSize.y * 0.8));
 
     var ennemy = new Snake(v2(mapSize.x - xDist - sw, sh), v2(mapSize.x - xDist, sh), getRandomColor(), thick);
     ennemy.segments[ennemy.segments.length - 1].setAnchor(null);
@@ -105,7 +105,7 @@ class SnakeBasketball {
     this.snakeB = ennemy;
     this.snakeBStart = this.snakeB.segments[0].pos;
 
-    var ball = Ball.instantiate(v2(winCenter.x, 100), v2(40, 40));
+    var ball = Ball.instantiate(v2(winCenter.x, 100), 40);
     ball.color = "rgba(249, 120, 0, 1)";
     this.ball = ball;
 

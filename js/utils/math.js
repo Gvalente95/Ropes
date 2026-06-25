@@ -1,71 +1,8 @@
-class Vec2 {
-  constructor(x, y) {
-    this.x = x;
-    this.y = y;
-  }
-  debugOnCanvas(ctx, pos = v2(50, 50), color = "red") {
-    drawText(ctx, pos, `x${this.x} y${this.y}`, color);
-  }
+const lerp = (a, b, t) => a + (b - a) * t;
 
-  debug(label = null) {
-    if (label) console.warn(`${label} x${this.x} y${this.y}`);
-    else console.warn(`x${this.x} y${this.y}`);
-  }
-}
+const r_range = (min, max) => Math.random() * (max - min) + min;
 
-function v2(x = 0, y = 0) {
-  return new Vec2(x, y);
-}
-
-function magnitude_v2(a, b) {
-  return Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
-}
-function sub_v2(a, b) {
-  return v2(a.x - b.x, a.y - b.y);
-}
-function normalize_v2(v) {
-  var mag = Math.sqrt(v.x * v.x + v.y * v.y);
-  if (mag === 0) return v2(0, 0);
-  return v2(v.x / mag, v.y / mag);
-}
-function mult_v2(a, b) {
-  return v2(a.x * b.x, a.y * b.y);
-}
-function add_v2(a, b) {
-  return v2(a.x + b.x, a.y + b.y);
-}
-
-function scale_v2(v, scalar) {
-  return v2(v.x * scalar, v.y * scalar);
-}
-
-function clamp_v2(v, limits) {
-  return v2(clamp(v.x, -limits.x, limits.x), clamp(v.y, -limits.y, limits.y));
-}
-
-function clamp(val, min, max) {
-  return val < min ? min : val > max ? max : val;
-}
-
-function lerp(a, b, t) {
-  return a + (b - a) * t;
-}
-
-function rand_v2(min = v2(0, 0), max = v2(window.innerWidth, window.innerHeight)) {
-  return v2(r_range(min.x, max.x), r_range(min.y, max.y));
-}
-
-function compare_v2(a, b, scalar) {
-  return magnitude_v2(a, b) < scalar;
-}
-
-function r_range(min, max) {
-  return Math.random() * (max - min) + min;
-}
-
-function r_range_int(min, max) {
-  return Math.floor(Math.random() * (max - min) + min);
-}
+const r_range_int = (min, max) => Math.floor(Math.random() * (max - min) + min);
 
 function rotate(velocity, angle) {
   return {
@@ -74,25 +11,11 @@ function rotate(velocity, angle) {
   };
 }
 
-function rotate_v2(pos, center, angle) {
-  const x = pos.x - center.x;
-  const y = pos.y - center.y;
-  const cos = Math.cos(angle);
-  const sin = Math.sin(angle);
-  const newX = x * cos - y * sin;
-  const newY = x * sin + y * cos;
-  return v2(newX + center.x, newY + center.y);
-}
-
 function clampAngle(dir, minA, maxA) {
   let a = Math.atan2(dir.y, dir.x);
   if (a < minA) a = minA;
   if (a > maxA) a = maxA;
   return v2(Math.cos(a), Math.sin(a));
-}
-
-function div_v2(a, b) {
-  return v2(a.x / b.x, a.y / b.y);
 }
 
 function rectInRect(ap, as, angleA, bp, bs, angleB) {
@@ -170,4 +93,18 @@ function pingPong(time, max, speed = 1, smooth = 2) {
   const sineValue = Math.sin(cycle * Math.PI); // -1 to 1 to -1
   const smoothedValue = Math.pow(Math.abs(sineValue), 1 / smooth) * Math.sign(sineValue);
   return smoothedValue * max;
+}
+
+function wrapScreenX(localX, z = 0) {
+  var stripWidth = winSize.x + 300;
+  var parallax = 1 / (1 + z * 0.2);
+  var x = localX - cam.scroll.x * parallax;
+
+  x = ((x % stripWidth) + stripWidth) % stripWidth;
+
+  return x - 150;
+}
+
+function roll(chance) {
+  return r_range_int(0, 100) < chance;
 }

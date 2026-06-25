@@ -8,10 +8,11 @@ var grass = [];
 var backgroundColor1 = getRandomColor();
 var backgroundColor2 = getRandomColor();
 
-var input = new Input();
-var mouse = new Mouse();
-var snakeBasketball = new SnakeBasketball();
-var startPreset = platformGame;
+var cinematics;
+var input;
+var mouse;
+var snakeBasketball;
+var firstPreset = platformGame;
 let minimap = null;
 
 let paused = false;
@@ -29,8 +30,12 @@ let ropeShaker = 0;
 
 //	ELEMENTS
 let ropes = [];
+let polygons = [];
+let backgroundElements = [];
+let frontPolygons = [];
 let entities = [];
 let shapes = [];
+let allShapes = [];
 let airPushers = [];
 
 //	SELECTION

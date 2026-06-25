@@ -11,7 +11,7 @@ function updateInputs() {
       break;
     case "escape":
       player = player2 = null;
-      cam.setTarget(null);
+      cam.follow(null);
       break;
     case "h":
       showHovMenu = !showHovMenu;
@@ -21,7 +21,7 @@ function updateInputs() {
       else if (hovShape) hovShape.control();
       break;
     case "f":
-      cam.setTarget(hov);
+      cam.follow(hov);
       break;
     case " ":
       if (!player && !contextMenu.hasHov) contextMenu.show();
@@ -39,7 +39,7 @@ function updateInputs() {
 
   if (input.keys["k"]) {
     for (let i = 0; i < 10; i++) {
-      var b = Ball.instantiate(v2(mouse.world.x + i * 10, mouse.world.y), v2(4, 4));
+      var b = Ball.instantiate(v2(mouse.world.x + i * 10, mouse.world.y), 4);
       //   b.dragFactor = 0;
       //   b.bounceFactor = 0;
     }
@@ -119,10 +119,18 @@ function update() {
     mouse.setPos();
   } else cam.update();
 
+  if (cinematics.active) {
+    cinematics.play();
+  }
+
   if (ropeShaker && frame % 2 === 0) shakeAll(ropeShaker);
+
   for (const s of shapes) s.update();
+
   for (const r of ropes) r.update();
   for (const e of entities) e.update();
+  for (const p of polygons) p.update();
+
   if (colGrid.active) colGrid.update();
   render();
   if (snakeBasketball.active) snakeBasketball.update();

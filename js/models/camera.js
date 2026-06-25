@@ -19,7 +19,7 @@ class Camera {
     if (this.target) this.centerTarget(this.target, 0.5);
   }
 
-  setTarget(newTarget = null) {
+  follow(newTarget = null) {
     if (this.locked) return;
     if (newTarget === this.target || !newTarget) this.target = null;
     else {
@@ -55,50 +55,14 @@ class Camera {
     this.scroll = v2();
   }
 
+  place(pos) {
+    this.scroll = pos;
+  }
+
   move(dx, dy) {
     this.scroll.x = clamp(this.scroll.x - dx, this.minX, this.maxX);
     this.scroll.y = clamp(this.scroll.y - dy, this.minY, this.maxY);
   }
-}
-
-function CircleInScreen(circle) {
-  return circleInRect(circle.pos, circle.size.x, cam.scroll, winSize);
-}
-
-function rectInScreen(rect) {
-  return rectInRect(rect, rect.size, rect.angle, cam.scroll, winSize);
-}
-
-function toScrn(x, y) {
-  let scrolledPos = v2(sx(x), sy(y));
-  return scrolledPos;
-}
-
-function v2ToScrn(v) {
-  return toScrn(v.x, v.y);
-}
-
-function v2ToWorld(v) {
-  return toWorld(v.x, v.y);
-}
-
-function toWorld(x, y) {
-  let scrolledPos = v2(wx(x), wy(y));
-  return scrolledPos;
-}
-
-function sx(x) {
-  return x - cam.scroll.x;
-}
-function sy(y) {
-  return y - cam.scroll.y;
-}
-
-function wx(x) {
-  return x + cam.scroll.x;
-}
-function wy(y) {
-  return y + cam.scroll.y;
 }
 
 function setMapSize(newMapSize = winSize) {
@@ -110,3 +74,19 @@ function setMapSize(newMapSize = winSize) {
   cam.center();
   cam.init();
 }
+
+const CircleInScreen = (circle) => circleInRect(circle.pos, circle.size.x, cam.scroll, winSize);
+const rectInScreen = (rect) => rectInRect(rect, rect.size, rect.angle, cam.scroll, winSize);
+
+const toScrn = (x, y) => v2(sx(x), sy(y));
+const toWorld = (x, y) => v2(wx(x), wy(y));
+
+const v2ToScrn = (v) => toScrn(v.x, v.y);
+const v2ToWorld = (v) => toWorld(v.x, v.y);
+
+const sx = (x) => x - cam.scroll.x;
+const sy = (y) => y - cam.scroll.y;
+const px = (x, z) => (x - cam.scroll.x) / (1 + z * 0.2);
+const py = (y, z) => (y - cam.scroll.y) / (1 + z * 0.2);
+const wx = (x) => x + cam.scroll.x;
+const wy = (y) => y + cam.scroll.y;

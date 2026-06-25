@@ -6,6 +6,7 @@ class Shape {
     this.type = type;
     this.color = color;
     this.fillColor = color;
+    this.z = 0;
     this.borderColor = setAlpha(color, 0);
     this.angle = angle;
     this.angVel = 0;
@@ -188,7 +189,12 @@ class Shape {
 
     // For rope segments (circles with small mass), use AABB collision with box
     // Get box corners with rotation
-    const boxCorners = [rotate_v2(v2(box.pos.x, box.pos.y), box.center, box.angle), rotate_v2(v2(box.pos.x + box.size.x, box.pos.y), box.center, box.angle), rotate_v2(v2(box.pos.x, box.pos.y + box.size.y), box.center, box.angle), rotate_v2(v2(box.pos.x + box.size.x, box.pos.y + box.size.y), box.center, box.angle)];
+    const boxCorners = [
+      rotate_v2(v2(box.pos.x, box.pos.y), box.center, box.angle),
+      rotate_v2(v2(box.pos.x + box.size.x, box.pos.y), box.center, box.angle),
+      rotate_v2(v2(box.pos.x, box.pos.y + box.size.y), box.center, box.angle),
+      rotate_v2(v2(box.pos.x + box.size.x, box.pos.y + box.size.y), box.center, box.angle),
+    ];
 
     // Find AABB bounds of rotated box
     const boxLeft = Math.min(...boxCorners.map((c) => c.x));
@@ -389,7 +395,7 @@ class Shape {
     if (!player) {
       player = this;
       this.rotationEnabled = true;
-      cam.setTarget(this);
+      cam.follow(this);
     } else if (player === this) player = null;
     else this.control2();
   }
@@ -516,145 +522,5 @@ class Shape {
     var shape = new constructor(v2(pos.x, pos.y), v2(size.x, size.y), type);
     shapes.push(shape);
     return shape;
-  }
-}
-
-class Ball extends Shape {
-  constructor(pos, size, color = getRandomColor()) {
-    super(pos, size, "CIRCLE", color);
-    this.bounceFactor = 0.8;
-    this.dragFactor = 0.99;
-  }
-
-  duplicate() {
-    var ball = new Ball(v2(this.pos.x + 5, this.pos.y + 5), v2(this.size.x, this.size.y), this.color);
-    ball.movable = this.movable;
-    ball.static = this.static;
-    ball.angle = this.angle;
-    ball.gravity = v2(this.gravity.x, this.gravity.y);
-    ball.rotationEnabled = this.rotationEnabled;
-    ball.angVel = this.angVel;
-    ball.bounceFactor = this.bounceFactor;
-    ball.dragFactor = this.dragFactor;
-    shapes.push(ball);
-  }
-
-  updateHover() {
-    if (pointInCircle(mouse.pos, v2(this.pos.x, this.pos.y), this.size.x)) hovShape = this;
-  }
-
-  render(_ctx = ctx) {
-    var isSel = contextMenu.shape === this || hovShape === this || selShape === this;
-    var curClr = isSel ? this.fillColor : addColor(this.fillColor, "black", 0.3);
-    var p = toScrn(this.pos.x, this.pos.y);
-    drawCircle2(_ctx, p.x, p.y, this.size.x, curClr, this.borderColor, 2);
-    var color = addColor(curClr, "black", 0.4);
-    for (let i = 0; i < 2; i++) {
-      const angle = this.angle + (i * Math.PI) / 2;
-      const dir = v2(Math.cos(angle), Math.sin(angle));
-      const start = add_v2(p, scale_v2(dir, this.size.x));
-      const end = add_v2(p, scale_v2(dir, -this.size.x));
-      drawLine(_ctx, [start.x, start.y], [end.x, end.y], color, 4);
-    }
-    drawCross(_ctx, v2(p.x - this.size.x, p.y - this.size.x), v2(this.size.x * 2, this.size.x * 2), this.angle, 0.1, color, addColor(color, "white", 0.2));
-    super.render();
-  }
-
-  static instantiate(pos = mouse.world, size = v2(r_range(20, 80), r_range(20, 80))) {
-    var ball = new Ball(v2(pos.x, pos.y), v2(size.x, size.y));
-    shapes.push(ball);
-    return ball;
-  }
-}
-
-class Rectangle extends Shape {
-  constructor(pos, size, color = getRandomColor(), allowRotation = false) {
-    super(pos, size, "SQUARE", color);
-    this.allowRotation = allowRotation;
-    this.bounceFactor = 0.5;
-    this.dragFactor = 0.8;
-    this.setBrokenGeometry(10);
-  }
-
-  duplicate() {
-    var rect = new Rectangle(v2(this.pos.x + 5, this.pos.y + 5), v2(this.size.x, this.size.y), this.color);
-    rect.movable = this.movable;
-    rect.static = this.static;
-    rect.angle = this.angle;
-    rect.gravity = v2(this.gravity.x, this.gravity.y);
-    rect.rotationEnabled = this.rotationEnabled;
-    rect.angVel = this.angVel;
-    rect.bounceFactor = this.bounceFactor;
-    rect.dragFactor = this.dragFactor;
-    shapes.push(rect);
-  }
-
-  setBrokenGeometry(amount) {
-    this.brkP = [];
-    this.brkP.push(v2(0, 0));
-    this.brkP.push(v2(1, 0));
-    this.brkP.push(v2(0, 1));
-    this.brkP.push(v2(1, 1));
-    for (let i = 0; i < amount; i++) this.brkP.push(v2(r_range(0, 1), r_range(0, 1)));
-  }
-
-  updateHover() {
-    if (pointInRect(mouse.pos, this.pos, this.size)) hovShape = this;
-  }
-
-  render(_ctx = ctx) {
-    var isSel = contextMenu.shape === this || hovShape === this || selShape === this;
-    var frameColor = isSel ? this.fillColor : addColor(this.fillColor, "black", 0.3);
-    var p = toScrn(this.pos.x, this.pos.y);
-    drawRect(p.x, p.y, this.size.x, this.size.y, frameColor, this.borderColor, _ctx, this.angle);
-  }
-
-  static instantiate(pos = mouse.world, size = v2(r_range(20, 80), r_range(20, 80))) {
-    var square = new Rectangle(v2(pos.x, pos.y), v2(size.x, size.y));
-    shapes.push(square);
-    return square;
-  }
-}
-
-class Mine extends Shape {
-  constructor(pos, size, sidesAmount = 16) {
-    super(pos, size, "CIRCLE", "grey", 0);
-    this.rotationEnabled = true;
-    this.length = 4;
-    this.thick = 20;
-    this.animSpeed = 0.1;
-    this.sidesAmount = sidesAmount;
-    this.color1 = "white";
-    this.color2 = "rgba(199, 199, 199, 1)";
-  }
-
-  duplicate() {
-    var mine = new Mine(v2(this.pos.x + 5, this.pos.y + 5), v2(this.size.x, this.size.y), this.sidesAmount);
-    mine.movable = this.movable;
-    mine.static = this.static;
-    mine.color1 = this.color1;
-    mine.color2 = this.color2;
-    mine.angle = this.angle;
-    mine.gravity = v2(this.gravity.x, this.gravity.y);
-    mine.rotationEnabled = this.rotationEnabled;
-    mine.angVel = this.angVel;
-    mine.bounceFactor = this.bounceFactor;
-    mine.dragFactor = this.dragFactor;
-    shapes.push(mine);
-  }
-
-  render() {
-    var th = this.thick;
-    if (this.animSpeed) th = this.thick * Math.abs((((frame / 2) * this.animSpeed) % 5) - 2.5);
-    drawStar(ctx, v2(sx(this.pos.x), sy(this.pos.y)), this.sidesAmount, this.angle, this.length, th, this.color1, this.color2);
-  }
-  updateHover() {
-    if (pointInCircle(mouse.pos, v2(this.pos.x, this.pos.y), this.size.x)) hovShape = this;
-  }
-
-  static instantiate(pos = mouse.world, size = v2(r_range(20, 80), r_range(20, 80))) {
-    var mine = new Mine(v2(pos.x, pos.y), v2(size.x, size.y));
-    mine.push(mine);
-    return mine;
   }
 }

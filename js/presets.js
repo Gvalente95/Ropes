@@ -8,7 +8,7 @@ function snakesInSpace(am = 10) {
   }
   for (let i = 0; i < am / 2; i++) {
     var size = r_range(10, 40);
-    Ball.instantiate(rand_v2(), v2(size, size));
+    Ball.instantiate(rand_v2(), size);
   }
 }
 
@@ -35,7 +35,7 @@ function forrest(am = 100) {
     ropes.push(r);
   }
   shakeAll(5);
-  var s = Ball.instantiate(v2(0, groundLevel * 0.1), v2(60, 60));
+  var s = Ball.instantiate(v2(0, groundLevel * 0.1), 60);
   s.vel.x = 1000;
   s.mass = 1000000;
   s.gravity = v2(0, 100);
@@ -43,7 +43,6 @@ function forrest(am = 100) {
 
 function weirdWorld(am = 400) {
   colGrid.init(200, false);
-  setMapSize();
   numOfConstraintsRuns = 1;
   SelfCollisionsInterval = 0;
   showAnchors = false;
@@ -93,7 +92,6 @@ function animatedWorld() {
   gravity = v2(0, 100);
   numOfConstraintsRuns = 2;
   SelfCollisionsInterval = 0;
-  setMapSize();
 
   var am = 100;
   var dur = 100;
@@ -106,15 +104,18 @@ function animatedWorld() {
       ropes.push(new Rope(v2(40 + (mapSize.x / am) * i, 20), null, getRandomColor(), r_range_int(1, 4), segAmount, segSpace));
     }, i * dur);
   }
-  setTimeout(() => {
-    if (input.lastKey === "r") return;
-    var circle = new Ball(v2(mapSize.x - 100, groundLevel * 0.9), v2(80, 80));
-    circle.vel.x = -1500;
-    circle.vel.y = -1500;
-    circle.bounceFactor = 1;
-    circle.drag = 0.1;
-    shapes.push(circle);
-  }, am * 1 * dur);
+  setTimeout(
+    () => {
+      if (input.lastKey === "r") return;
+      var circle = new Ball(v2(mapSize.x - 100, groundLevel * 0.9), v2(80, 80));
+      circle.vel.x = -1500;
+      circle.vel.y = -1500;
+      circle.bounceFactor = 1;
+      circle.drag = 0.1;
+      shapes.push(circle);
+    },
+    am * 1 * dur,
+  );
 }
 
 function borderGrass() {
@@ -142,7 +143,7 @@ function borderGrass() {
       r.gravity = grav;
       r.segments[r.segments.length - 1].setAnchor(null);
       ropes.push(r);
-      var s = Ball.instantiate(p, v2(5, 5));
+      var s = Ball.instantiate(p, 5);
       s.gravity = grav;
       r.segments[r.segments.length - 1].attachToShape(s);
     }
@@ -158,8 +159,9 @@ function hangingSnakes() {
   colGrid.init(200, false);
   SelfCollisionsInterval = 5;
   gravity = v2(0, 100);
+
   for (let i = 0; i < am; i++) {
-    var p = v2(mapSize.x * (i / am), 100);
+    var p = v2(60 + mapSize.x * (i / am), 100);
     var segAmount = r_range_int(20, 100);
     var thick = r_range_int(2, 30);
     var segSpace = r_range_int(2, 5);
@@ -170,22 +172,32 @@ function hangingSnakes() {
 }
 
 function setPreset(preset) {
+  setMapSize();
   snakeBasketball.active = false;
-  cam.setTarget(null);
+  cam.follow(null);
   clearAll();
   preset();
+  //   cam.center();
+  initGrass();
+  initBackElements();
+}
+
+function bubbles() {
+  colGrid.init(200, false);
+
+  for (let i = 0; i < 200; i++) {
+    Ball.instantiate(rand_v2(), r_range_int(5, 10));
+  }
 }
 
 function platformGame() {
-  colGrid.init(200, false);
-  var snake = new Snake(v2(200, groundLevel - 20), v2(50, groundLevel - 20));
-  snake.segments[snake.segments.length - 1].setAnchor(null);
-  entities.push(snake);
-  snake.control();
   setMapSize(v2(20000, 5000));
-  snake.setPointy(-0.2);
+
+  colGrid.init(200, false);
   minimap.hide();
   showHovMenu = false;
+
+  cam.place(v2(500, 5000 - window.innerHeight));
 
   var x = 2000;
   var w = 200;
@@ -200,8 +212,19 @@ function platformGame() {
 
   var x = 4000;
 
-  Ball.instantiate(v2(x, groundLevel - 200), v2(50, 50));
+  Ball.instantiate(v2(x, groundLevel - 200), 50);
 
   var rect = Rectangle.instantiate(v2(x + 500, groundLevel - 500), v2(50, 500));
   rect.rotationEnabled = false;
+
+  var playerSnake = new Snake(v2(-100, groundLevel - 20), v2(50, groundLevel - 20));
+  playerSnake.segments[playerSnake.segments.length - 1].setAnchor(null);
+  playerSnake.setPointy(-0.2);
+  playerSnake.follow(v2(window.innerWidth / 2 + 550, groundLevel - 20), () => playerSnake.control());
+  entities.push(playerSnake);
+}
+
+function bridgePreset() {
+  colGrid.init(200, false);
+  ropes.push(new Rope(v2(50, 50), v2(500, 500)));
 }

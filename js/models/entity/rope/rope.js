@@ -204,6 +204,7 @@ class Rope {
     this.frameCollisionsAmount = 0;
     this.stiffness = 0;
     this.pointiness = 0;
+    this.isSquare = roll(20);
     this.stripesOccurence = 0;
     this.stripesColor = getRandomColor();
     this.collisionsEnabled = true;
@@ -244,7 +245,13 @@ class Rope {
     this.isChain = stiffness > 0;
   }
 
-  setSpines(occurence = r_range_int(4, 12), color = getRandomColor(), angle = r_range(0, 0.3), curve = r_range(-Math.PI / 2, Math.PI / 2), size = v2(r_range_int(this.thick / 16, this.thick), r_range_int(this.thick / 2, this.thick * 2))) {
+  setSpines(
+    occurence = r_range_int(4, 12),
+    color = getRandomColor(),
+    angle = r_range(0, 0.3),
+    curve = r_range(-Math.PI / 2, Math.PI / 2),
+    size = v2(r_range_int(this.thick / 16, this.thick), r_range_int(this.thick / 2, this.thick * 2)),
+  ) {
     this.spineOccurence = occurence;
     this.spineOnBothSides = false;
     this.spineColor = color;
@@ -657,6 +664,21 @@ class Rope {
     if (!isInv && this.spineOnBothSides) this.renderSpine(_ctx, seg, i, true);
   }
 
+  drawSnakeSegment(ctx, x, y, r, color, borderColor, slw, angle = 0) {
+    drawCircle2(ctx, x, y, r, color, borderColor, slw);
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI);
+    ctx.fillStyle = darkenColor(color, 0.75);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
   render(_ctx = ctx) {
     if (frame % 2 === 0) {
       this.inScreen = false;
@@ -674,6 +696,7 @@ class Rope {
       if (isHighlight) transparent = "rgba(255, 255, 255, 1)";
     }
     var circles = [];
+    var shadows = [];
     var slw = 2;
 
     var lineClr = this.color;
@@ -693,25 +716,25 @@ class Rope {
       else if (this.color2 && !this.isRainbow && getAlpha(this.color2) > 0) {
         curClr = addColor(this.color, this.color2, i / this.segAmount);
       }
-      if (this.stripesOccurence && i % this.stripesOccurence === 0) curClr = this.stripesColor;
+      const isStripped = this.stripesOccurence && i % this.stripesOccurence === 0;
+      if (isStripped) curClr = this.stripesColor;
       if (i < this.segments.length - 1) {
         var nextSeg = this.segments[i + 1];
         var end = toScrn(nextSeg.pos.x, nextSeg.pos.y);
-        if (this.isChain) {
-          drawCircle2(_ctx, p.x, p.y, lw, borderColor, curClr, slw);
-        } else {
-          drawLine(_ctx, p, end, curClr, lineWidth);
-          drawCircle2(_ctx, p.x, p.y, lw, curClr, borderColor, slw);
-        }
+        drawLine(_ctx, p, end, curClr, lineWidth);
+        if (!this.isSquare) this.drawSnakeSegment(_ctx, p.x, p.y, lw, curClr, borderColor, slw, seg.angle);
       } else {
-        if (this.isChain) drawCircle2(_ctx, p, lw, borderColor, curClr, slw);
+        if (this.isChain) drawCircle2(_ctx, p.x, p.y, lw, borderColor, curClr, slw);
         else drawCircle2(_ctx, p.x, p.y, lw, curClr, borderColor, slw);
       }
       if ((seg.isAnchor && showAnchors) || seg == selSegment) circles.push([toScrn(seg.pos.x, seg.pos.y), 4, curClr, "black", 1]);
     }
-    for (const c of circles) drawCircle2(_ctx, c[0].x, c[0].y, c[1], c[2], c[3], c[4]);
+
+    if (!this.isSquare) for (const c of circles) drawCircle2(_ctx, c[0].x, c[0].y, c[1], c[2], c[3], c[4]);
+    for (const s of shadows) drawLine(_ctx, s[0], s[1], s[2], s[3]);
+
     if (showDots) for (const seg of this.segments) drawRect(sx(seg.pos.x - 4), sy(seg.pos.y - 4), 8, 8, "rgba(0,0,0,0)", "yellow", _ctx);
-    if (showArrows)
+    if (showArrows || isHighlight)
       for (let i = 0; i < this.segments.length - 2; i++) {
         var seg = this.segments[i];
         drawArrowFromAngle(v2ToScrn(seg.pos), seg.angle, this.segSpace, "white", _ctx);

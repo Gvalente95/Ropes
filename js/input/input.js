@@ -2,6 +2,7 @@ class Input {
   constructor() {
     this.keys = {};
     this.codeClicked = null;
+    this.shift = false;
     this.lastKey = null;
     this.keyClicked = null;
     this.wasd = v2(0, 0);
@@ -28,10 +29,12 @@ window.addEventListener("keydown", (e) => {
   input.keys[ek] = true;
   input.keyClicked = ek;
   input.codeClicked = e.code;
+  if (ek === "shift") input.shift = true;
   input.update();
 });
 window.addEventListener("keyup", (e) => {
   var ek = e.key.toLowerCase();
   input.keys[ek] = false;
+  if (ek === "shift") input.shift = false;
   input.update();
 });

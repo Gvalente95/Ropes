@@ -46,6 +46,29 @@ function drawLine(ctx, start, end, color = "white", width = 2, handleSize = 0) {
   if (handleSize > 0) drawCircle2(ctx, end.x, end.y, handleSize * _scale);
 }
 
+function drawLineBottomShade(ctx, p, end, color, lineWidth) {
+  const dx = end.x - p.x;
+  const dy = end.y - p.y;
+  const len = Math.sqrt(dx * dx + dy * dy) || 1;
+  let nx = -dy / len;
+  let ny = dx / len;
+  if (ny < 0) {
+    nx = -nx;
+    ny = -ny;
+  }
+  const shadeSize = lineWidth;
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(p.x, p.y);
+  ctx.lineTo(end.x, end.y);
+  ctx.lineTo(end.x + nx * shadeSize, end.y + ny * shadeSize);
+  ctx.lineTo(p.x + nx * shadeSize, p.y + ny * shadeSize);
+  ctx.closePath();
+  ctx.clip();
+  drawLine(ctx, p, end, darkenColor(color, 0.75), lineWidth);
+  ctx.restore();
+}
+
 function drawStripedLine(p0, p1, color1, color2 = "rgba(0, 0, 0, 0)") {
   const dx = p1.x - p0.x;
   const dy = p1.y - p0.y;
@@ -99,7 +122,20 @@ function drawCircle2(ctx, x, y, radius = 2, color = "white", strokeColor = "blac
   ctx.strokeStyle = prevStroke;
 }
 
-function drawBezierLine(start, end, ctrl, color = "white", width = 16) {
+function drawCircleBottomShade(ctx, x, y, r, angle = 0, alpha = 0.16) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI);
+  ctx.fillStyle = `rgba(0,0,0,${alpha})`;
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawBezierLine(start, end, ctrl, color = "white", color2 = null, width = 16) {
   const dist1 = Math.hypot(ctrl.x - start.x, ctrl.y - start.y);
   const dist2 = Math.hypot(end.x - ctrl.x, end.y - ctrl.y);
   const approxLength = dist1 + dist2;
@@ -109,6 +145,7 @@ function drawBezierLine(start, end, ctrl, color = "white", width = 16) {
     const mt = 1 - t;
     const x = mt * mt * start.x + 2 * mt * t * ctrl.x + t * t * end.x;
     const y = mt * mt * start.y + 2 * mt * t * ctrl.y + t * t * end.y;
+    if (color2) ctx.fillStyle = lerpColor(color, color2, t);
     ctx.fillRect(x, y, width, width);
   }
 }

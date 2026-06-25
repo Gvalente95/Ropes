@@ -32,6 +32,8 @@ class ContextMenu {
         { label: "Rope Thickness", t: "slider", get: () => this.target.thick, set: (v) => this.target.setRopeThickness(v), min: 1, max: 40, step: 1 },
         { label: "Rope Pointiness", t: "slider", get: () => this.target.pointiness, set: (v) => this.target.setPointy(v), min: -0.95, max: 0.95, step: 0.1 },
         { label: "Chain", t: "switch", get: () => this.target.isChain, set: (v) => (this.target.isChain = v) },
+        { label: "Square", t: "switch", get: () => this.target.isSquare, set: (v) => (this.target.isSquare = v) },
+
         {
           label: "Spines",
           section: [
@@ -97,7 +99,7 @@ class ContextMenu {
       Focus: {
         label: "Cam Focus",
         t: "button",
-        f: () => cam.setTarget(this.segment),
+        f: () => cam.follow(this.segment),
       },
     };
 
@@ -132,7 +134,7 @@ class ContextMenu {
       Focus: {
         label: "Cam Focus",
         t: "button",
-        f: () => cam.setTarget(this.shape),
+        f: () => cam.follow(this.shape),
       },
     };
 
@@ -159,7 +161,7 @@ class ContextMenu {
       Focus: {
         label: "Cam Focus",
         t: "button",
-        f: () => cam.setTarget(this.airPusher),
+        f: () => cam.follow(this.airPusher),
       },
     };
     this.menuOptions = {
@@ -206,7 +208,9 @@ class ContextMenu {
         { label: "Unanchor", t: "function", f: () => unanchorAll() },
       ],
       Presets: [
+        { label: "PlatformGame", t: "function", f: () => setPreset(platformGame) },
         { label: "Animated World", t: "function", f: () => setPreset(animatedWorld) },
+        { label: "Bubbles", t: "function", f: () => setPreset(bubbles) },
         { label: "Hanging Snakes", t: "function", f: () => setPreset(hangingSnakes) },
         { label: "Snakes in space", t: "function", f: () => setPreset(snakesInSpace) },
         { label: "Upside Down world", t: "function", f: () => setPreset(forrest) },

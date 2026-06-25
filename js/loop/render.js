@@ -19,12 +19,15 @@ function render() {
 
   drawRect(0, 0, _canvas.width, _canvas.height, null, null, ctx, 0, { color1: backgroundColor1, color2: backgroundColor2, direction: "vertical" });
   if (snakeBasketball.active) snakeBasketball.render();
-  drawGrass(false);
 
+  for (const p of backgroundElements) p.render();
+  drawGrass(false);
   for (const a of airPushers) a.render();
   for (const s of shapes) s.render();
   for (const r of ropes) r.render();
   for (const e of entities) e.render();
+  for (const p of frontPolygons) p.render();
+
   if (colGrid.shown) colGrid.show();
 
   var groundY = groundLevel - cam.scroll.y;
@@ -144,46 +147,54 @@ function renderKeys(basePos = v2(25, 25)) {
 }
 
 function drawGrass(hasPair, isPair) {
-  var grassSpacing = mapSize.x / grass.length;
-  var startIdx = Math.max(0, Math.floor(cam.scroll.x / grassSpacing) + (hasPair && !isPair ? 1 : 0));
-  var endIdx = Math.min(grass.length, Math.ceil((cam.scroll.x + winSize.x) / grassSpacing));
-  var step = hasPair ? 2 : 1;
+  var step = hasPair ? 8 : 1;
+  var w = hasPair ? 2 : 0.4;
 
-  endIdx = grass.length;
-  for (let i = startIdx; i < endIdx; i += step) {
+  for (let i = hasPair && !isPair ? 1 : 0; i < grass.length; i += step) {
     var gr = grass[i];
 
-    var w = 0.4;
-    var clr = gr.color;
-    gr.angle += gr.angDir * 0.01;
+    gr.angle += gr.angDir * (0.01 * (hasPair ? 0.2 : 1));
+
     if (Math.abs(gr.startAngle - gr.angle) > Math.PI / 8) {
       gr.angDir *= -1;
       gr.angle = gr.startAngle + (Math.PI / 8) * (gr.angle > gr.startAngle ? 1 : -1);
     }
 
-    const p = toScrn(gr.pos.x, groundLevel);
-    var grassTip = v2(p.x - Math.cos(gr.angle) * gr.length, p.y - Math.sin(gr.angle) * gr.length);
+    var x = wrapScreenX(gr.localX, gr.z);
+    var p = v2(x, groundLevel - cam.scroll.y);
+
+    var height = gr.length;
+    var grassTip = v2(p.x - Math.cos(gr.angle) * gr.length, p.y - Math.sin(gr.angle) * height);
 
     for (const s of shapes) {
       if (!s.inScreen || s.pos.y < p.y) continue;
+
       const sScreenPos = v2ToScrn(s.pos);
+
       if (s.type === "CIRCLE" && pointInCircle(grassTip, sScreenPos, s.size.x)) {
         const dx = grassTip.x - sScreenPos.x;
         const dy = grassTip.y - sScreenPos.y;
         const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        const pushDist = s.size.x + 5; // Push beyond shape radius
+        const pushDist = s.size.x + 5;
+
         grassTip = v2(sScreenPos.x + (dx / dist) * pushDist, sScreenPos.y + (dy / dist) * pushDist);
+
         gr.angle = 0;
         break;
-      } else if (s.type === "SQUARE" && pointInRect(grassTip, sScreenPos, s.size, s.angle)) {
+      }
+
+      if (s.type === "SQUARE" && pointInRect(grassTip, sScreenPos, s.size, s.angle)) {
         const dx = grassTip.x - sScreenPos.x;
         const dy = grassTip.y - sScreenPos.y;
         const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        const pushDist = s.size.x + 5; // Push beyond shape radius
+        const pushDist = s.size.x + 5;
+
         grassTip = v2(sScreenPos.x + (dx / dist) * pushDist, sScreenPos.y + (dy / dist) * pushDist);
+
         gr.angle = 0;
       }
     }
-    drawBezierLine(p, grassTip, v2(p.x, p.y - gr.length / 2), clr, w);
+
+    drawBezierLine(p, grassTip, v2(p.x, p.y - gr.length / 2), gr.color, "", w);
   }
 }

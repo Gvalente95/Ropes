@@ -43,6 +43,18 @@ function setAlpha(color, alpha) {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
+function darkenColor(color, amount = 0.75) {
+  const c = color.match(/\d+(\.\d+)?/g);
+  if (!c) return color;
+
+  const r = Math.floor(c[0] * amount);
+  const g = Math.floor(c[1] * amount);
+  const b = Math.floor(c[2] * amount);
+  const a = c[3] ?? 1;
+
+  return `rgba(${r},${g},${b},${a})`;
+}
+
 function addColor(originalColor, newColor, amount = 1) {
   const a = getRGB(originalColor),
     b = getRGB(newColor);
@@ -56,7 +68,7 @@ function addColor(originalColor, newColor, amount = 1) {
   return `rgb(${r}, ${g}, ${bl})`;
 }
 
-function getRainbowColor(FRAME = _frame, speed = 0.002) {
+function getRainbowColor(FRAME = frame, speed = 0.002) {
   const r = Math.floor(127 * Math.sin(speed * FRAME + 0) + 128);
   const g = Math.floor(127 * Math.sin(speed * FRAME + 2) + 128);
   const b = Math.floor(127 * Math.sin(speed * FRAME + 4) + 128);
@@ -65,7 +77,7 @@ function getRainbowColor(FRAME = _frame, speed = 0.002) {
 
 function getTimeColor() {
   let phase = 50;
-  let t = _frame;
+  let t = frame;
   let tr = t % 255;
   let tg = (t + phase) % 255;
   let tb = (t + phase * 2) % 255;
@@ -74,7 +86,7 @@ function getTimeColor() {
 
 function getMountainColor() {
   let phase = 50;
-  let t = _frame;
+  let t = frame;
   let tr = t % 255;
   let tg = (t + phase) % 255;
   let tb = (t + phase * 2) % 255;
@@ -158,4 +170,39 @@ function getAlpha(color) {
 function rgbaToRgb(rgba) {
   var rgb = getRGB(rgba);
   return `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+}
+
+function lerpColor(c1, c2, t) {
+  const a = parseColor(c1);
+  const b = parseColor(c2);
+
+  return `rgb(${Math.round(a.r + (b.r - a.r) * t)}, ${Math.round(a.g + (b.g - a.g) * t)}, ${Math.round(a.b + (b.b - a.b) * t)})`;
+}
+
+function parseColor(color) {
+  const ctxTmp = document.createElement("canvas").getContext("2d");
+  ctxTmp.fillStyle = color;
+  const computed = ctxTmp.fillStyle;
+
+  if (computed.startsWith("#")) {
+    const hex = computed.slice(1);
+    const value = parseInt(
+      hex.length === 3
+        ? hex
+            .split("")
+            .map((c) => c + c)
+            .join("")
+        : hex,
+      16,
+    );
+
+    return {
+      r: (value >> 16) & 255,
+      g: (value >> 8) & 255,
+      b: value & 255,
+    };
+  }
+
+  const m = computed.match(/\d+/g).map(Number);
+  return { r: m[0], g: m[1], b: m[2] };
 }

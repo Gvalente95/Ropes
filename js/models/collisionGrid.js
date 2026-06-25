@@ -27,7 +27,6 @@ class CollisionGrid {
       }
     }
     for (const s of shapes) {
-
       // Calculate shape bounds
       let minX, minY, maxX, maxY;
       if (s.type === "CIRCLE") {
@@ -191,7 +190,7 @@ function clearAll() {
   airPushers = [];
   hovAirPusher = selAirPusher = hovDirPusher = selDirPusher = hovSegment = selSegment = hovShape = selShape = null;
   player = null;
-  cam.setTarget(null);
+  cam.follow(null);
 }
 
 function ensureElementRemoval(element) {

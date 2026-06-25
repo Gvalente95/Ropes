@@ -42,7 +42,7 @@ class AirPusher {
     if (player === this) player = null;
     else {
       player = this;
-      cam.setTarget(this);
+      cam.follow(this);
     }
   }
 
@@ -69,7 +69,8 @@ class AirPusher {
     var tip = v2(baseCenter.x + dx * size, baseCenter.y + dy * size);
     var left = v2(tip.x + px * baseWidth * 0.5, tip.y + py * baseWidth * 0.5);
     var right = v2(tip.x - px * baseWidth * 0.5, tip.y - py * baseWidth * 0.5);
-    if (!hovSegment && !selShape && !selDirPusher && !selAirPusher && !selSegment && pointInTriangle(mouse.world.x, mouse.world.y, baseCenter.x, baseCenter.y, left.x, left.y, right.x, right.y)) hovDirPusher = this;
+    if (!hovSegment && !selShape && !selDirPusher && !selAirPusher && !selSegment && pointInTriangle(mouse.world.x, mouse.world.y, baseCenter.x, baseCenter.y, left.x, left.y, right.x, right.y))
+      hovDirPusher = this;
     var clr = player === this || hovDirPusher === this ? "rgba(255, 255, 255, 0.2)" : "rgba(255, 255, 255, 0.1)";
     if (hovDirPusher === this && mouse.pressed) selDirPusher = this;
     drawTriangleBorder(ctx, toScrn(baseCenter.x, baseCenter.y), toScrn(left.x, left.y), toScrn(right.x, right.y), clr, 2);
@@ -99,7 +100,7 @@ class AirPusher {
     var push = v2(Math.cos(this.angle) * rad, Math.sin(this.angle) * rad);
     drawArrowFromAngle(add_v2(p, push), this.angle, -length, "rgba(255, 255, 255, 0.24)");
 
-    if (hovAirPusher === this && input.keyClicked === "f") cam.setTarget(this);
+    if (hovAirPusher === this && input.keyClicked === "f") cam.follow(this);
 
     if ((!mouse.pressed || hovSegment) && input.keyClicked !== "enter") {
       if (selAirPusher === this) selAirPusher = null;

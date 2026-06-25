@@ -5,6 +5,7 @@ class Mouse {
     this.screen = v2(window.innerWidth / 2, window.innerHeight / 2);
     this.wheel = v2(0, 0);
     this.wheelDelta = v2(0, 0);
+    this.hasWheeled = false;
     this.pressed = false;
     this.clicked = false;
     this.delta = v2(0, 0);
@@ -47,5 +48,5 @@ window.addEventListener(
   (e) => {
     e.preventDefault();
   },
-  { passive: false }
+  { passive: false },
 );
